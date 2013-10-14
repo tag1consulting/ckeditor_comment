@@ -1,0 +1,4 @@
+name = CKEditor Inline Comments
+description = Provides plugin to add support for inline commenting in CKEditor.
+core = 7.x
+package = CKEditor
