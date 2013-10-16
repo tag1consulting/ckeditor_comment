@@ -22,11 +22,18 @@ function ckeditor_comment_schema() {
   $schema['ckeditor_comment'] = array(
     'description' => 'The base table for ckeditor_comments.',
     'fields' => array(
-      'cke_cid' => array(
+      'cid' => array(
         'description' => 'The primary identifier for the ckeditor_comment.',
         'type' => 'serial',
         'unsigned' => TRUE,
         'not null' => TRUE,
+      ),
+      'pcid' => array(
+        'description' => 'The identifier of the parent of this ckeditor_comment.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
       ),
       'type' => array(
         'description' => 'The type (bundle) of this ckeditor_comment.',
@@ -35,6 +42,27 @@ function ckeditor_comment_schema() {
         'not null' => TRUE,
         'default' => '',
       ),
+      'uid' => array(
+        'description' => 'ID of Drupal user creator.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'created' => array(
+        'description' => 'The Unix timestamp when the ckeditor_comment was created.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'changed' => array(
+        'description' => 'The Unix timestamp when the ckeditor_comment was most recently saved.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
       'title' => array(
         'description' => 'The title of the ckeditor_comment.',
         'type' => 'varchar',
@@ -42,46 +70,60 @@ function ckeditor_comment_schema() {
         'not null' => TRUE,
         'default' => '',
       ),
-      'uid' => array(
-        'description' => 'ID of Drupal user creator.',
-        'type' => 'int',
-        'not null' => TRUE,
+      'body' => array(
+        'description' => 'ckeditor_comment body.',
+        'type' => 'text',
       ),
-      'created' => array(
-        'description' => 'The Unix timestamp when the ckeditor_comment was created.',
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
-      ),
-      'changed' => array(
-        'description' => 'The Unix timestamp when the ckeditor_comment was most recently saved.',
+      'resolved' => array(
+        'description' => 'Boolean indicating whether the comment is resolved.',
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
       ),
-      'target_type' => array(
+      'entity_type' => array(
         'description' => 'Entity type of the target entity (e.g. "node")',
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
         'default' => '',
       ),
-      'target_entity_id' => array(
+      'entity_bundle' => array(
+        'description' => 'Entity bundle of the target entity (e.g. "article")',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'entity_id' => array(
         'description' => 'ID of the target entity (e.g. $node->nid).',
         'type' => 'int',
+        'unsigned' => TRUE,
         'not null' => TRUE,
+        'default' => 0,
       ),
-      'target_entity_revision_id' => array(
+      'entity_vid' => array(
         'description' => 'Revision ID of the target entity (e.g. $node->vid).',
         'type' => 'int',
+        'unsigned' => TRUE,
         'not null' => TRUE,
+        'default' => 0,
       ),
-      'summary' => array(
-        'description' => 'ckeditor_comment summary.',
-        'type' => 'text',
+      'field_name' => array(
+        'description' => 'The field which is being commented (e.g. "body").',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'field_value' => array(
+        'description' => 'The value of the field which is actually being used (e.g. "body_value" or "body_summary").',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
       ),
     ),
-    'primary key' => array('cke_cid'),
+    'primary key' => array('cid'),
   );
 
   $schema['ckeditor_comment_type'] = array(

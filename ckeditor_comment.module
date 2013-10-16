@@ -320,7 +320,7 @@ function ckeditor_comment_entity_info() {
       'base table' => 'ckeditor_comment',
       'fieldable' => TRUE,
       'entity keys' => array(
-        'id' => 'cke_cid',
+        'id' => 'cid',
         'bundle' => 'type',
       ),
       'bundle keys' => array(
@@ -479,16 +479,16 @@ function ckeditor_comment_access($op, $comment, $account = NULL, $entity_type = 
 /**
  * Load a ckeditor_comment.
  */
-function ckeditor_comment_load($cke_cid, $reset = FALSE) {
-  $comments = ckeditor_comment_load_multiple(array($cke_cid), array(), $reset);
+function ckeditor_comment_load($cid, $reset = FALSE) {
+  $comments = ckeditor_comment_load_multiple(array($cid), array(), $reset);
   return reset($comments);
 }
 
 /**
  * Load multiple ckeditor_comments based on certain conditions.
  */
-function ckeditor_comment_load_multiple($cke_cids = array(), $conditions = array(), $reset = FALSE) {
-  return entity_load('ckeditor_comment', $cke_cids, $conditions, $reset);
+function ckeditor_comment_load_multiple($cids = array(), $conditions = array(), $reset = FALSE) {
+  return entity_load('ckeditor_comment', $cids, $conditions, $reset);
 }
 
 /**

@@ -140,30 +140,64 @@ function ckeditor_comment_form($form, &$form_state, $comment) {
     '#default_value' => $comment->title,
   );
 
-  $form['summary'] = array(
+  $form['body'] = array(
     '#type' => 'textarea',
-    '#title' => t('Summary'),
-    '#default_value' => $comment->summary,
+    '#title' => t('Body'),
+    '#default_value' => $comment->body,
+  );
+
+  $form['pcid'] = array(
+    '#title' => t('Parent ID'),
+    '#type' => 'textfield',
+    '#value' => $comment->pcid,
+  );
+
+  $form['resolved'] = array(
+    '#title' => t('Resolved'),
+    '#type' => 'textfield',
+    '#value' => $comment->resolved,
   );
 
   $form['uid'] = array(
-    '#type' => 'value',
+    '#title' => t('UID'),
+    '#type' => 'textfield',
     '#value' => $comment->uid,
   );
 
-  $form['target_type'] = array(
-    '#type' => 'value',
-    '#value' => $comment->target_type,
+  $form['entity_type'] = array(
+    '#title' => t('Entity Type'),
+    '#type' => 'textfield',
+    '#value' => $comment->entity_type,
   );
 
-  $form['target_entity_id'] = array(
-    '#type' => 'value',
-    '#value' => $comment->target_entity_id,
+  $form['entity_bundle'] = array(
+    '#title' => t('Entity Bundle'),
+    '#type' => 'textfield',
+    '#value' => $comment->entity_bundle,
   );
 
-  $form['target_entity_revision_id'] = array(
-    '#type' => 'value',
-    '#value' => $comment->target_entity_revision_id,
+  $form['entity_id'] = array(
+    '#title' => t('Entity ID'),
+    '#type' => 'textfield',
+    '#value' => $comment->entity_id,
+  );
+
+  $form['entity_vid'] = array(
+    '#title' => t('Entity VID'),
+    '#type' => 'textfield',
+    '#value' => $comment->entity_vid,
+  );
+
+  $form['field_name'] = array(
+    '#title' => t('Field Name'),
+    '#type' => 'textfield',
+    '#value' => $comment->field_name,
+  );
+
+  $form['field_value'] = array(
+    '#title' => t('Field Value'),
+    '#type' => 'textfield',
+    '#value' => $comment->field_value,
   );
 
   field_attach_form('ckeditor_comment', $comment, $form, $form_state);
@@ -179,7 +213,7 @@ function ckeditor_comment_form($form, &$form_state, $comment) {
 
   $form['actions']['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Save ckeditor_comment'),
+    '#value' => t('Save comment'),
     '#submit' => $submit + array('ckeditor_comment_form_submit'),
   );
 

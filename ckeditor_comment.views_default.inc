@@ -40,16 +40,16 @@ function ckeditor_comment_views_default_views() {
   $handler->display->display_options['relationships']['uid']['label'] = 'Author';
   $handler->display->display_options['relationships']['uid']['required'] = 0;
   /* Field: CKEditorComment: CKEditorComment ID */
-  $handler->display->display_options['fields']['cke_cid']['id'] = 'cke_cid';
-  $handler->display->display_options['fields']['cke_cid']['table'] = 'ckeditor_comment';
-  $handler->display->display_options['fields']['cke_cid']['field'] = 'cke_cid';
+  $handler->display->display_options['fields']['cid']['id'] = 'cid';
+  $handler->display->display_options['fields']['cid']['table'] = 'ckeditor_comment';
+  $handler->display->display_options['fields']['cid']['field'] = 'cid';
   /* Field: CKEditorComment: Title */
   $handler->display->display_options['fields']['title']['id'] = 'title';
   $handler->display->display_options['fields']['title']['table'] = 'ckeditor_comment';
   $handler->display->display_options['fields']['title']['field'] = 'title';
   $handler->display->display_options['fields']['title']['alter']['alter_text'] = 0;
   $handler->display->display_options['fields']['title']['alter']['make_link'] = 1;
-  $handler->display->display_options['fields']['title']['alter']['path'] = 'ckeditor_comment/[cke_cid]';
+  $handler->display->display_options['fields']['title']['alter']['path'] = 'ckeditor_comment/[cid]';
   $handler->display->display_options['fields']['title']['alter']['absolute'] = 0;
   $handler->display->display_options['fields']['title']['alter']['external'] = 0;
   $handler->display->display_options['fields']['title']['alter']['replace_spaces'] = 0;
@@ -121,7 +121,7 @@ function ckeditor_comment_views_default_views() {
   $handler->display->display_options['fields']['nothing']['label'] = 'Edit';
   $handler->display->display_options['fields']['nothing']['alter']['text'] = 'Edit';
   $handler->display->display_options['fields']['nothing']['alter']['make_link'] = 1;
-  $handler->display->display_options['fields']['nothing']['alter']['path'] = 'ckeditor_comment/[cke_cid]/edit';
+  $handler->display->display_options['fields']['nothing']['alter']['path'] = 'ckeditor_comment/[cid]/edit';
   $handler->display->display_options['fields']['nothing']['alter']['absolute'] = 0;
   $handler->display->display_options['fields']['nothing']['alter']['external'] = 0;
   $handler->display->display_options['fields']['nothing']['alter']['replace_spaces'] = 0;

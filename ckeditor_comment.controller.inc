@@ -6,10 +6,15 @@ class CKEditorCommentController extends EntityAPIController {
     global $user;
     $values += array(
       'title' => '',
-      'summary' => '',
-      'target_entity_id' => '',
-      'target_entity_revision_id' => '',
-      'target_type' => 'node',
+      'body' => '',
+      'pcid' => 0,
+      'resolved' => 0,
+      'entity_id' => '',
+      'entity_vid' => '',
+      'entity_type' => 'node',
+      'entity_bundle' => '',
+      'field_name' => '',
+      'field_value' => '',
       'created' => REQUEST_TIME,
       'changed' => REQUEST_TIME,
       'uid' => $user->uid,
@@ -22,7 +27,7 @@ class CKEditorCommentController extends EntityAPIController {
     $content['author'] = array('#markup' => t('Created by: !author', array('!author' => $wrapper->uid->name->value(array('sanitize' => TRUE)))));
 
     // Make Summary and Status themed like default fields.
-    $content['summary'] = array(
+    $content['body'] = array(
       '#theme' => 'field',
       '#weight' => 0,
       '#title' =>t('Description'),
@@ -30,13 +35,13 @@ class CKEditorCommentController extends EntityAPIController {
       '#label_display' => 'above',
       '#view_mode' => 'full',
       '#language' => LANGUAGE_NONE,
-      '#field_name' => 'field_fake_summary',
+      '#field_name' => 'field_fake_body',
       '#field_type' => 'text',
       '#entity_type' => 'ckeditor_comment',
       '#bundle' => $entity->type,
-      '#items' => array(array('value' => $entity->summary)),
+      '#items' => array(array('value' => $entity->body)),
       '#formatter' => 'text_default',
-      0 => array('#markup' => check_plain($entity->summary))
+      0 => array('#markup' => check_plain($entity->body))
     );
 
     return parent::buildContent($entity, $view_mode, $langcode, $content);
