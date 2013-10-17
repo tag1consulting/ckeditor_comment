@@ -1,0 +1,579 @@
+<?php
+
+/**
+ * Helper function to fake comments.
+ */
+function _ckeditor_comment() {
+  return array(
+    1234 => array(
+      'uid' => 1,
+      'comment' => 'Testing this comment',
+      'timestamp' => 1381211248,
+      'pid' => NULL,
+      'resolved' => 0,
+    ),
+    1235 => array(
+      'uid' => 2,
+      'comment' => 'Reply to first comment',
+      'timestamp' => 1381211258,
+      'pid' => 1234,
+      'resolved' => 0,
+    ),
+    1236 => array(
+      'uid' => 4,
+      'comment' => 'Testing another comment',
+      'timestamp' => 1381211584,
+      'pid' => NULL,
+      'resolved' => 0,
+    ),
+    1237 => array(
+      'uid' => 4,
+      'comment' => 'Resolved comment',
+      'timestamp' => 1381211627,
+      'pid' => NULL,
+      'resolved' => 0,
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function ckeditor_comment_menu() {
+  $items = array();
+
+  $items['ajax/ckeditor/comment'] = array(
+    'title' => 'AJAX CKEditor Comment Action',
+    'page callback' => 'ckeditor_comment_ajax_callback',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['ckeditor_comment/add'] = array(
+    'title' => 'Add ckeditor_comment',
+    'page callback' => 'ckeditor_comment_admin_add_page',
+    'access arguments' => array('administer ckeditor_comment entities'),
+    'file' => 'ckeditor_comment.admin.inc',
+    'type' => MENU_LOCAL_ACTION,
+    'tab_parent' => 'ckeditor_comment',
+    'tab_root' => 'ckeditor_comment',
+  );
+
+  $comment_uri = 'ckeditor_comment/%ckeditor_comment';
+  $comment_uri_argument_position = 1;
+
+  $items[$comment_uri] = array(
+    'title callback' => 'entity_label',
+    'title arguments' => array('ckeditor_comment', $comment_uri_argument_position),
+    'page callback' => 'ckeditor_comment_view',
+    'page arguments' => array($comment_uri_argument_position),
+    'access callback' => 'entity_access',
+    'access arguments' => array('view', 'ckeditor_comment', $comment_uri_argument_position),
+  );
+
+  $items[$comment_uri . '/view'] = array(
+    'title' => 'View',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+
+  $items[$comment_uri . '/delete'] = array(
+    'title' => 'Delete ckeditor_comment',
+    'title callback' => 'ckeditor_comment_label',
+    'title arguments' => array($comment_uri_argument_position),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ckeditor_comment_delete_form', $comment_uri_argument_position),
+    'access callback' => 'entity_access',
+    'access arguments' => array('edit', 'ckeditor_comment', $comment_uri_argument_position),
+    'file' => 'ckeditor_comment.admin.inc',
+  );
+
+  $items[$comment_uri . '/edit'] = array(
+    'title' => 'Edit',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ckeditor_comment_form', $comment_uri_argument_position),
+    'access callback' => 'entity_access',
+    'access arguments' => array('edit', 'ckeditor_comment', $comment_uri_argument_position),
+    'file' => 'ckeditor_comment.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+  );
+
+  foreach (ckeditor_comment_types() as $type => $info) {
+    $items['ckeditor_comment/add/' . $type] = array(
+      'title' => 'Add ckeditor_comment',
+      'page callback' => 'ckeditor_comment_add',
+      'page arguments' => array(2),
+      'access callback' => 'entity_access',
+      'access arguments' => array('create', 'ckeditor_comment', $type),
+      'file' => 'ckeditor_comment.admin.inc',
+    );
+  }
+
+  $items['admin/structure/ckeditor_comment-types/%ckeditor_comment_type/delete'] = array(
+    'title' => 'Delete',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ckeditor_comment_type_form_delete_confirm', 4),
+    'access arguments' => array('administer ckeditor_comment types'),
+    'weight' => 1,
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'ckeditor_comment.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * AJAX callback for processing CKEditor inline comment actions.
+ */
+function ckeditor_comment_ajax_callback() {
+  $json = array();
+  // @todo put in some XSS validation here.
+  switch ($_POST['action']) {
+    // @todo create a function to save a comment.
+    case 'comment_save:':
+      break;
+
+    // @todo create a real function for loading a single comment.
+    case 'comment_load':
+      $comments = _ckeditor_comment();
+      if (!empty($comments[$_POST['cid']])) {
+        $comment = $comments[$_POST['cid']];
+        $json['content'] = '<strong>' . format_username(user_load($comment['uid'])) . '</strong>';
+        $json['content'] .= '<div class="comment">' . $comment['comment'] . '</div>';
+      }
+      break;
+
+    // Loads comments for an entity.
+    case 'field_load_comments':
+      $json['content'] = ckeditor_comment_field_load_comments($_POST['type'], $_POST['bundle'], $_POST['id'], $_POST['vid'], $_POST['summary']);
+      break;
+  }
+  drupal_json_output($json);
+  drupal_exit();
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function ckeditor_comment_form_field_ui_field_edit_form_alter(&$form, &$form_state) {
+  $field = $form['#field'];
+  $settings = $form['#instance']['settings'];
+  if ($field['type'] === 'text_long' || $field['type'] === 'text_with_summary') {
+    $form['instance']['settings']['ckeditor_comment'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Enable inline comments in CKEditor'),
+      '#description' => t('This allows any CKEditor instance to use inline commenting for this field.'),
+      '#default_value' => isset($settings['ckeditor_comment']) ? $settings['ckeditor_comment'] : FALSE,
+    );
+  }
+}
+
+/**
+ * Implements hook_element_info_alter().
+ */
+function ckeditor_comment_element_info_alter(&$info) {
+  $info['text_format']['#process'][] = '_ckeditor_comment_process_text_format';
+}
+
+/**
+ * Process callback for text_format elements.
+ */
+function _ckeditor_comment_process_text_format(&$element, &$form_state) {
+  // Only process text areas that have been flagged.
+  if (!empty($element['#field_name'])
+    && !empty($element['#language'])
+    && !empty($form_state['field'][$element['#field_name']][$element['#language']]['instance']['settings']['ckeditor_comment'])
+  ) {
+    $attributes = array(
+      'class' => array('cke-inline-comments'),
+      'data-summary' => '0',
+    );
+    if (!empty($element['#entity_type']) && !empty($element['#entity'])) {
+      list($id, $vid, $bundle) = entity_extract_ids($element['#entity_type'], $element['#entity']);
+      $attributes['data-type'] = $element['#entity_type'];
+      $attributes['data-id'] = $id;
+      $attributes['data-vid'] = $vid;
+      $attributes['data-bundle'] = $bundle;
+    }
+    $field = $form_state['field'][$element['#field_name']][$element['#language']]['field'];
+    if (($field['type'] === 'text_long' || $field['type'] === 'text_with_summary') && !empty($element['value'])) {
+      if (!isset($element['value']['#attributes'])) {
+        $element['value']['#attributes'] = array();
+      }
+      $element['value']['#attributes'] = drupal_array_merge_deep($element['value']['#attributes'], $attributes);
+      // Summaries.
+      if ($field['type'] === 'text_with_summary' && !empty($element['summary'])) {
+        if (!isset($element['summary']['#attributes'])) {
+          $element['summary']['#attributes'] = array();
+        }
+        $attributes['data-summary'] = '1';
+        $element['summary']['#attributes'] = drupal_array_merge_deep($element['summary']['#attributes'], $attributes);
+      }
+    }
+  }
+  return $element;
+}
+
+/**
+ * Load a text_format field's inline comments for a specific entity.
+ *
+ * @param string $type
+ *   Type of entity to load.
+ * @param string $bundle
+ *   Bundle name of entity to load.
+ * @param int $id
+ *   ID of entity to load.
+ * @param int $vid
+ *   Version ID of entity to load.
+ * @param bool $summary
+ *   Retrieve the field's summary value instead (if it exists).
+ *
+ * @return bool|string
+ *   The value of the field (or summary) containing comments, FALSE if no
+ *   comments exist for this field.
+ */
+function ckeditor_comment_field_load_comments($type, $bundle, $id, $vid = 0, $summary = FALSE) {
+  // Simulates a DB query for returning the value of the text_format textarea
+  // prior to the comments being stripped out.
+  // @todo replace with real DB query once a proper schema has been setup.
+  if ($type === 'node' && $bundle === 'page' && (int) $id === 4 && (int) $vid === 4 && (int) $summary === 0) {
+    return '<p>Donec ullamcorper nulla non <span data-cid="1234">metus auctor</span> fringilla. <span data-cid="1236">Vestibulum</span> id ligula porta felis euismod semper. Cras mattis <span data-cid="1237">consectetur purus sit amet</span> fermentum. Cras justo odio, dapibus ac facilisis in, egestas eget quam. Donec sed odio dui. Nullam id dolor id nibh ultricies vehicula ut id elit. Donec sed odio dui.</p>';
+  }
+  return FALSE;
+}
+
+/**
+ * Implements hook_ckeditor_plugin().
+ *
+ * Provides plugin to add support for inline commenting in CKEditor.
+ */
+function ckeditor_comment_ckeditor_plugin() {
+  return array(
+    'inline_comment' => array(
+      'name' => 'inline_comment',
+      'desc' => t('Support inline commenting in CKEditor.'),
+      'path' => drupal_get_path('module', 'ckeditor_comment') . '/plugin/',
+      'buttons' => array(
+        'inline_comment' => array(
+          'icon' => 'inline-comment.png',
+          'label' => t('Comment'),
+        ),
+      ),
+      'default' => 't',
+    ),
+  );
+}
+
+/**
+ * Implements hook_ckeditor_settings_alter().
+ */
+function ckeditor_comment_ckeditor_settings_alter(&$settings) {
+  static $init = FALSE;
+  if (!$init) {
+    $init = TRUE;
+    $users = array();
+    foreach (entity_load('user', array(1, 2, 3)) as $user) {
+      $users[$user->uid] = array(
+        'uid' => $user->uid,
+        'name' => format_username($user),
+        'picture' => theme('user_picture', array('account' => $user)),
+        'color' => _ckeditor_comment_generate_color(),
+      );
+    }
+    drupal_add_js(array(
+      'CKEditor' => array(
+        'inline_comments' => array(
+          'edit-body-und-0-value' => array(
+            'comments' => _ckeditor_comment(),
+          ),
+        ),
+      ),
+    ), 'setting');
+  }
+}
+
+/**
+ * Generate a unique random color.
+ */
+function _ckeditor_comment_generate_color() {
+  static $colors = array();
+  $color = sprintf("#%06x", rand(0, 16777215));
+  // If color was already generated, generate a new one.
+  if (in_array($color, $colors)) {
+    return _ckeditor_comment_generate_color();
+  }
+  return $colors[] = $color;
+}
+
+//** CKEditorComment entity functions. **//
+
+/**
+ * Implements hook_entity_info().
+ */
+function ckeditor_comment_entity_info() {
+  $return = array(
+    'ckeditor_comment' => array(
+      'label' => t('CKEditorComment'),
+      'entity class' => 'CKEditorComment',
+      'controller class' => 'CKEditorCommentController',
+      'base table' => 'ckeditor_comment',
+      'fieldable' => TRUE,
+      'entity keys' => array(
+        'id' => 'cid',
+        'bundle' => 'type',
+      ),
+      'bundle keys' => array(
+        'bundle' => 'type',
+      ),
+      'bundles' => array(),
+      'load hook' => 'ckeditor_comment_load',
+      'view modes' => array(
+        'full' => array(
+          'label' => t('Default'),
+          'custom settings' => FALSE,
+        ),
+      ),
+      'label callback' => 'entity_class_label',
+      'uri callback' => 'entity_class_uri',
+      'module' => 'ckeditor_comment',
+      'access callback' => 'ckeditor_comment_access',
+    ),
+  );
+  $return['ckeditor_comment_type'] = array(
+    'label' => t('CKEditor Comment Type'),
+    'entity class' => 'CKEditorCommentType',
+    'controller class' => 'CKEditorCommentTypeController',
+    'base table' => 'ckeditor_comment_type',
+    'fieldable' => FALSE,
+    'bundle of' => 'ckeditor_comment',
+    'exportable' => TRUE,
+    'entity keys' => array(
+      'id' => 'id',
+      'name' => 'type',
+      'label' => 'label',
+    ),
+    'module' => 'ckeditor_comment',
+    // Enable the entity API's admin UI.
+    'admin ui' => array(
+      'path' => 'admin/structure/ckeditor_comment-types',
+      'file' => 'ckeditor_comment.admin.inc',
+      'controller class' => 'CKEditorCommentTypeUIController',
+    ),
+    'access callback' => 'ckeditor_comment_type_access',
+  );
+
+  return $return;
+}
+
+/**
+ * Implements hook_entity_info_alter().
+ */
+function ckeditor_comment_entity_info_alter(&$entity_info) {
+  foreach (ckeditor_comment_types() as $type => $info) {
+    $entity_info['ckeditor_comment']['bundles'][$type] = array(
+      'label' => $info->label,
+      'admin' => array(
+        'path' => 'admin/structure/ckeditor_comment-types/manage/%ckeditor_comment_type',
+        'real path' => 'admin/structure/ckeditor_comment-types/manage/' . $type,
+        'bundle argument' => 4,
+      ),
+    );
+  }
+}
+
+/**
+ * Implements hook_permission().
+ */
+function ckeditor_comment_permission() {
+  $permissions = array(
+    'administer ckeditor_comment types' => array(
+      'title' => t('Administer ckeditor_comment types'),
+      'description' => t('Allows users to configure ckeditor_comment types and their fields.'),
+      'restrict access' => TRUE,
+    ),
+    'create ckeditor_comment entities' => array(
+      'title' => t('Create ckeditor_comments'),
+      'description' => t('Allows users to create ckeditor_comments.'),
+      'restrict access' => TRUE,
+    ),
+    'view ckeditor_comment entities' => array(
+      'title' => t('View ckeditor_comments'),
+      'description' => t('Allows users to view ckeditor_comments.'),
+      'restrict access' => TRUE,
+    ),
+    'edit any ckeditor_comment entities' => array(
+      'title' => t('Edit any ckeditor_comments'),
+      'description' => t('Allows users to edit any ckeditor_comments.'),
+      'restrict access' => TRUE,
+    ),
+    'edit own ckeditor_comment entities' => array(
+      'title' => t('Edit own ckeditor_comments'),
+      'description' => t('Allows users to edit own ckeditor_comments.'),
+      'restrict access' => TRUE,
+    ),
+  );
+
+  return $permissions;
+}
+
+
+/**
+ * Implements hook_entity_property_info_alter().
+ */
+function ckeditor_comment_entity_property_info_alter(&$info) {
+  $properties = &$info['ckeditor_comment']['properties'];
+  $properties['created'] = array(
+    'label' => t("Date created"),
+    'type' => 'date',
+    'description' => t("The date the ckeditor_comment was posted."),
+    'setter callback' => 'entity_property_verbatim_set',
+    'setter permission' => 'administer nodes',
+    'schema field' => 'created',
+  );
+  $properties['changed'] = array(
+    'label' => t("Date changed"),
+    'type' => 'date',
+    'schema field' => 'changed',
+    'description' => t("The date the ckeditor_comment was most recently updated."),
+  );
+  $properties['uid'] = array(
+    'label' => t("Author"),
+    'type' => 'user',
+    'description' => t("The author of the ckeditor_comment."),
+    'setter callback' => 'entity_property_verbatim_set',
+    'setter permission' => 'administer ckeditor_comment entities',
+    'required' => TRUE,
+    'schema field' => 'uid',
+  );
+}
+
+
+/*******************************************************************************
+ ********************************* CKEditorComment API's **********************************
+ ******************************************************************************/
+
+/**
+ * Access callback for ckeditor_comment.
+ */
+function ckeditor_comment_access($op, $comment, $account = NULL, $entity_type = NULL) {
+  global $user;
+
+  if (!isset($account)) {
+    $account = $user;
+  }
+  switch ($op) {
+    case 'create':
+      return user_access('administer ckeditor_comment entities', $account)
+          || user_access('create ckeditor_comment entities', $account);
+    case 'view':
+      return user_access('administer ckeditor_comment entities', $account)
+          || user_access('view ckeditor_comment entities', $account);
+    case 'edit':
+      return user_access('administer ckeditor_comment entities')
+          || user_access('edit any ckeditor_comment entities')
+          || (user_access('edit own ckeditor_comment entities') && ($comment->uid == $account->uid));
+  }
+}
+
+/**
+ * Load a ckeditor_comment.
+ */
+function ckeditor_comment_load($cid, $reset = FALSE) {
+  $comments = ckeditor_comment_load_multiple(array($cid), array(), $reset);
+  return reset($comments);
+}
+
+/**
+ * Load multiple ckeditor_comments based on certain conditions.
+ */
+function ckeditor_comment_load_multiple($cids = array(), $conditions = array(), $reset = FALSE) {
+  return entity_load('ckeditor_comment', $cids, $conditions, $reset);
+}
+
+/**
+ * Save ckeditor_comment.
+ */
+function ckeditor_comment_save($comment) {
+  entity_save('ckeditor_comment', $comment);
+}
+
+/**
+ * Delete single ckeditor_comment.
+ */
+function ckeditor_comment_delete($comment) {
+  entity_delete('ckeditor_comment', entity_id('ckeditor_comment' ,$comment));
+}
+
+/**
+ * Delete multiple ckeditor_comments.
+ */
+function ckeditor_comment_delete_multiple($comment_ids) {
+  entity_delete_multiple('ckeditor_comment', $comment_ids);
+}
+
+
+/*******************************************************************************
+ ************************* CKEditor Comment Type API's *************************
+ ******************************************************************************/
+
+/**
+ * Access callback for ckeditor_comment Type.
+ */
+function ckeditor_comment_type_access($op, $entity = NULL) {
+  return user_access('administer ckeditor_comment types');
+}
+
+/**
+ * Load ckeditor_comment Type.
+ */
+function ckeditor_comment_type_load($comment_type) {
+  return ckeditor_comment_types($comment_type);
+}
+
+/**
+ * List of ckeditor_comment Types.
+ */
+function ckeditor_comment_types($type_name = NULL) {
+  $types = entity_load_multiple_by_name('ckeditor_comment_type', isset($type_name) ? array($type_name) : FALSE);
+  return isset($type_name) ? reset($types) : $types;
+}
+
+/**
+ * Save ckeditor_comment type entity.
+ */
+function ckeditor_comment_type_save($comment_type) {
+  entity_save('ckeditor_comment_type', $comment_type);
+}
+
+/**
+ * Delete single case type.
+ */
+function ckeditor_comment_type_delete($comment_type) {
+  entity_delete('ckeditor_comment_type', entity_id('ckeditor_comment_type' ,$comment_type));
+}
+
+/**
+ * Delete multiple case types.
+ */
+function ckeditor_comment_type_delete_multiple($comment_type_ids) {
+  entity_delete_multiple('ckeditor_comment_type', $comment_type_ids);
+}
+
+/**
+  * Implements hook_views_api().
+  */
+function ckeditor_comment_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'ckeditor_comment'),
+  );
+}
+
+/**
+ * CKEditorComment view callback.
+ */
+function ckeditor_comment_view($comment) {
+  drupal_set_title(entity_label('ckeditor_comment', $comment));
+  return entity_view('ckeditor_comment', array(entity_id('ckeditor_comment', $comment) => $comment), 'full');
+}
