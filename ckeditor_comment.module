@@ -1,42 +1,6 @@
 <?php
 
 /**
- * Helper function to fake comments.
- */
-function _ckeditor_comment() {
-  return array(
-    1234 => array(
-      'uid' => 1,
-      'comment' => 'Testing this comment',
-      'timestamp' => 1381211248,
-      'pid' => NULL,
-      'resolved' => 0,
-    ),
-    1235 => array(
-      'uid' => 2,
-      'comment' => 'Reply to first comment',
-      'timestamp' => 1381211258,
-      'pid' => 1234,
-      'resolved' => 0,
-    ),
-    1236 => array(
-      'uid' => 4,
-      'comment' => 'Testing another comment',
-      'timestamp' => 1381211584,
-      'pid' => NULL,
-      'resolved' => 0,
-    ),
-    1237 => array(
-      'uid' => 4,
-      'comment' => 'Resolved comment',
-      'timestamp' => 1381211627,
-      'pid' => NULL,
-      'resolved' => 0,
-    ),
-  );
-}
-
-/**
  * Implements hook_menu().
  */
 function ckeditor_comment_menu() {
@@ -134,19 +98,17 @@ function ckeditor_comment_ajax_callback() {
     case 'comment_save:':
       break;
 
-    // @todo create a real function for loading a single comment.
     case 'comment_load':
-      $comments = _ckeditor_comment();
-      if (!empty($comments[$_POST['cid']])) {
-        $comment = $comments[$_POST['cid']];
-        $json['content'] = '<strong>' . format_username(user_load($comment['uid'])) . '</strong>';
-        $json['content'] .= '<div class="comment">' . $comment['comment'] . '</div>';
+      $comment = ckeditor_comment_load_multiple(array($_POST['cid']), array(
+        'entity_type' => $_POST['entityType'],
+        'entity_bundle' => $_POST['entityBundle'],
+        'entity_id' => $_POST['entityId'],
+        'entity_vid' => $_POST['entityVid'],
+      ));
+      if ($comment) {
+        $json['content'] = '<strong>' . format_username(user_load($comment->uid)) . '</strong>';
+        $json['content'] .= '<div class="comment">' . $comment->body . '</div>';
       }
-      break;
-
-    // Loads comments for an entity.
-    case 'field_load_comments':
-      $json['content'] = ckeditor_comment_field_load_comments($_POST['type'], $_POST['bundle'], $_POST['id'], $_POST['vid'], $_POST['summary']);
       break;
   }
   drupal_json_output($json);
@@ -185,16 +147,17 @@ function _ckeditor_comment_process_text_format(&$element, &$form_state) {
     && !empty($element['#language'])
     && !empty($form_state['field'][$element['#field_name']][$element['#language']]['instance']['settings']['ckeditor_comment'])
   ) {
-    $attributes = array(
-      'class' => array('cke-inline-comments'),
-      'data-summary' => '0',
-    );
+    $attributes = array();
     if (!empty($element['#entity_type']) && !empty($element['#entity'])) {
       list($id, $vid, $bundle) = entity_extract_ids($element['#entity_type'], $element['#entity']);
-      $attributes['data-type'] = $element['#entity_type'];
-      $attributes['data-id'] = $id;
-      $attributes['data-vid'] = $vid;
-      $attributes['data-bundle'] = $bundle;
+      $attributes['class'][] = 'cke-inline-comments';
+      $attributes['data-entity-type'] = $element['#entity_type'];
+      $attributes['data-entity-id'] = $id;
+      $attributes['data-entity-vid'] = $vid;
+      $attributes['data-entity-bundle'] = $bundle;
+      $attributes['data-field-name'] = $element['#field_name'];
+      $attributes['data-field-value'] = 'value';
+      $attributes['data-field-item'] = $element['#delta'];
     }
     $field = $form_state['field'][$element['#field_name']][$element['#language']]['field'];
     if (($field['type'] === 'text_long' || $field['type'] === 'text_with_summary') && !empty($element['value'])) {
@@ -207,40 +170,12 @@ function _ckeditor_comment_process_text_format(&$element, &$form_state) {
         if (!isset($element['summary']['#attributes'])) {
           $element['summary']['#attributes'] = array();
         }
-        $attributes['data-summary'] = '1';
+        $attributes['data-field-value'] = 'summary';
         $element['summary']['#attributes'] = drupal_array_merge_deep($element['summary']['#attributes'], $attributes);
       }
     }
   }
   return $element;
-}
-
-/**
- * Load a text_format field's inline comments for a specific entity.
- *
- * @param string $type
- *   Type of entity to load.
- * @param string $bundle
- *   Bundle name of entity to load.
- * @param int $id
- *   ID of entity to load.
- * @param int $vid
- *   Version ID of entity to load.
- * @param bool $summary
- *   Retrieve the field's summary value instead (if it exists).
- *
- * @return bool|string
- *   The value of the field (or summary) containing comments, FALSE if no
- *   comments exist for this field.
- */
-function ckeditor_comment_field_load_comments($type, $bundle, $id, $vid = 0, $summary = FALSE) {
-  // Simulates a DB query for returning the value of the text_format textarea
-  // prior to the comments being stripped out.
-  // @todo replace with real DB query once a proper schema has been setup.
-  if ($type === 'node' && $bundle === 'page' && (int) $id === 4 && (int) $vid === 4 && (int) $summary === 0) {
-    return '<p>Donec ullamcorper nulla non <span data-cid="1234">metus auctor</span> fringilla. <span data-cid="1236">Vestibulum</span> id ligula porta felis euismod semper. Cras mattis <span data-cid="1237">consectetur purus sit amet</span> fermentum. Cras justo odio, dapibus ac facilisis in, egestas eget quam. Donec sed odio dui. Nullam id dolor id nibh ultricies vehicula ut id elit. Donec sed odio dui.</p>';
-  }
-  return FALSE;
 }
 
 /**
@@ -250,47 +185,19 @@ function ckeditor_comment_field_load_comments($type, $bundle, $id, $vid = 0, $su
  */
 function ckeditor_comment_ckeditor_plugin() {
   return array(
-    'inline_comment' => array(
-      'name' => 'inline_comment',
-      'desc' => t('Support inline commenting in CKEditor.'),
+    'comments' => array(
+      'name' => 'comments',
+      'desc' => t('CKEditor comments'),
       'path' => drupal_get_path('module', 'ckeditor_comment') . '/plugin/',
       'buttons' => array(
-        'inline_comment' => array(
-          'icon' => 'inline-comment.png',
+        'comment' => array(
+          'icon' => 'images/comment.png',
           'label' => t('Comment'),
         ),
       ),
       'default' => 't',
     ),
   );
-}
-
-/**
- * Implements hook_ckeditor_settings_alter().
- */
-function ckeditor_comment_ckeditor_settings_alter(&$settings) {
-  static $init = FALSE;
-  if (!$init) {
-    $init = TRUE;
-    $users = array();
-    foreach (entity_load('user', array(1, 2, 3)) as $user) {
-      $users[$user->uid] = array(
-        'uid' => $user->uid,
-        'name' => format_username($user),
-        'picture' => theme('user_picture', array('account' => $user)),
-        'color' => _ckeditor_comment_generate_color(),
-      );
-    }
-    drupal_add_js(array(
-      'CKEditor' => array(
-        'inline_comments' => array(
-          'edit-body-und-0-value' => array(
-            'comments' => _ckeditor_comment(),
-          ),
-        ),
-      ),
-    ), 'setting');
-  }
 }
 
 /**
