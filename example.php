@@ -2,19 +2,19 @@
 
 $node = node_load(1113);
 
-$comment = new stdClass;
-$comment->title = 'prog title';
+$comment = new stdClass();
 $comment->type = 'standard';
 $comment->body = 'prog body';
+$comment->position = array(14, 27);
 $comment->entity_id = $node->nid;
 $comment->entity_vid = $node->vid;
 $comment->entity_type = 'node';
 $comment->entity_bundle = $node->type;
 $comment->field_name = 'body';
-$comment->field_value = 'body_value';
+$comment->field_summary = 0;
 $comment->uid = 1;
 $comment->resolved = 1;
-$comment->pcid = 100;
+$comment->pid = 100;
 $comment->created = REQUEST_TIME;
 $comment->changed = REQUEST_TIME;
 

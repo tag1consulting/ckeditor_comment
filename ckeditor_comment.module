@@ -99,15 +99,27 @@ function ckeditor_comment_ajax_callback() {
       break;
 
     case 'comment_load':
-      $comment = ckeditor_comment_load_multiple(array($_POST['cid']), array(
+      $json['comments'] = array();
+      $cids = array();
+      if (!empty($_POST['cids']) && is_array($_POST['cids'])) {
+        $cids = $_POST['cid'];
+      }
+      if (!empty($_POST['cid']) && !is_array($_POST['cid'])) {
+        $cids[] = $_POST['cid'];
+      }
+      $comments = ckeditor_comment_load_multiple($cids, array(
         'entity_type' => $_POST['entityType'],
         'entity_bundle' => $_POST['entityBundle'],
         'entity_id' => $_POST['entityId'],
         'entity_vid' => $_POST['entityVid'],
+        'field_name' => $_POST['fieldName'],
+        'field_summary' => $_POST['fieldSummary'],
       ));
-      if ($comment) {
-        $json['content'] = '<strong>' . format_username(user_load($comment->uid)) . '</strong>';
-        $json['content'] .= '<div class="comment">' . $comment->body . '</div>';
+      if (!empty($comments)) {
+        foreach ($comments as $comment) {
+          $json['comments'][$comment->cid] = '<strong>' . format_username(user_load($comment->uid)) . '</strong>';
+          $json['comments'][$comment->cid] .= '<div class="comment">' . $comment->body . '</div>';
+        }
       }
       break;
   }
@@ -143,34 +155,51 @@ function ckeditor_comment_element_info_alter(&$info) {
  */
 function _ckeditor_comment_process_text_format(&$element, &$form_state) {
   // Only process text areas that have been flagged.
-  if (!empty($element['#field_name'])
+  if (!empty($element['#entity_type'])
+    && !empty($element['#entity'])
+    && !empty($element['#field_name'])
     && !empty($element['#language'])
     && !empty($form_state['field'][$element['#field_name']][$element['#language']]['instance']['settings']['ckeditor_comment'])
   ) {
-    $attributes = array();
-    if (!empty($element['#entity_type']) && !empty($element['#entity'])) {
-      list($id, $vid, $bundle) = entity_extract_ids($element['#entity_type'], $element['#entity']);
-      $attributes['class'][] = 'cke-inline-comments';
-      $attributes['data-entity-type'] = $element['#entity_type'];
-      $attributes['data-entity-id'] = $id;
-      $attributes['data-entity-vid'] = $vid;
-      $attributes['data-entity-bundle'] = $bundle;
-      $attributes['data-field-name'] = $element['#field_name'];
-      $attributes['data-field-value'] = 'value';
-      $attributes['data-field-item'] = $element['#delta'];
-    }
     $field = $form_state['field'][$element['#field_name']][$element['#language']]['field'];
-    if (($field['type'] === 'text_long' || $field['type'] === 'text_with_summary') && !empty($element['value'])) {
+    list($entity_id, $entity_vid, $entity_bundle) = entity_extract_ids($element['#entity_type'], $element['#entity']);
+    $attributes = array(
+      'data-comments-enabled' => 'true',
+      'data-entity-type' => $element['#entity_type'],
+      'data-entity-id' => $entity_id,
+      'data-entity-vid' => $entity_vid,
+      'data-entity-bundle' => $entity_bundle,
+      'data-field-name' => $element['#field_name'],
+      'data-field-summary' => '0',
+      'data-cids' => drupal_json_encode(array_keys(ckeditor_comment_load_multiple(array(), array(
+        'entity_type' => $element['#entity_type'],
+        'entity_id' => $entity_id,
+        'entity_vid' => $entity_vid,
+        'entity_bundle' => $entity_bundle,
+        'field_name' => $element['#field_name'],
+        'field_summary' => '0',
+      )))),
+    );
+    if ($field['type'] === 'text_long' || $field['type'] === 'text_with_summary') {
+      // Value.
       if (!isset($element['value']['#attributes'])) {
         $element['value']['#attributes'] = array();
       }
       $element['value']['#attributes'] = drupal_array_merge_deep($element['value']['#attributes'], $attributes);
-      // Summaries.
+      // Summary.
       if ($field['type'] === 'text_with_summary' && !empty($element['summary'])) {
+        $attributes['data-field-summary'] = '1';
+        $attributes['data-cids'] = drupal_json_encode(array_keys(ckeditor_comment_load_multiple(array(), array(
+          'entity_type' => $element['#entity_type'],
+          'entity_id' => $entity_id,
+          'entity_vid' => $entity_vid,
+          'entity_bundle' => $entity_bundle,
+          'field_name' => $element['#field_name'],
+          'field_summary' => '1',
+        ))));
         if (!isset($element['summary']['#attributes'])) {
           $element['summary']['#attributes'] = array();
         }
-        $attributes['data-field-value'] = 'summary';
         $element['summary']['#attributes'] = drupal_array_merge_deep($element['summary']['#attributes'], $attributes);
       }
     }

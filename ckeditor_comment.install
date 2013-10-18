@@ -5,10 +5,10 @@
  */
 function ckeditor_comment_install() {
   // Create a default type for CKEditor Comments.
-  $type = new stdClass;
+  $type = new stdClass();
   $type->type = 'default';
   $type->label = 'Default';
-  $type->description = 'a standard type.';
+  $type->description = 'Default CKEditor comment type.';
   $type->status = 1;
   ckeditor_comment_type_save($type);
 }
@@ -23,20 +23,20 @@ function ckeditor_comment_schema() {
     'description' => 'The base table for ckeditor_comments.',
     'fields' => array(
       'cid' => array(
-        'description' => 'The primary identifier for the ckeditor_comment.',
+        'description' => 'The primary identifier of this comment.',
         'type' => 'serial',
         'unsigned' => TRUE,
         'not null' => TRUE,
       ),
-      'pcid' => array(
-        'description' => 'The identifier of the parent of this ckeditor_comment.',
+      'pid' => array(
+        'description' => 'The identifier of the parent comment of this comment.',
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
       ),
       'type' => array(
-        'description' => 'The type (bundle) of this ckeditor_comment.',
+        'description' => 'The type (bundle) of this comment.',
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
@@ -50,28 +50,29 @@ function ckeditor_comment_schema() {
         'default' => 0,
       ),
       'created' => array(
-        'description' => 'The Unix timestamp when the ckeditor_comment was created.',
+        'description' => 'The Unix timestamp when the comment was created.',
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
       ),
       'changed' => array(
-        'description' => 'The Unix timestamp when the ckeditor_comment was most recently saved.',
+        'description' => 'The Unix timestamp when the comment was most recently saved.',
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
       ),
-      'title' => array(
-        'description' => 'The title of the ckeditor_comment.',
+      'position' => array(
+        'description' => 'The position of the comment in the field.',
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
         'default' => '',
+        'serialize' => TRUE,
       ),
       'body' => array(
-        'description' => 'ckeditor_comment body.',
+        'description' => 'The comment body.',
         'type' => 'text',
       ),
       'resolved' => array(
@@ -109,18 +110,17 @@ function ckeditor_comment_schema() {
         'default' => 0,
       ),
       'field_name' => array(
-        'description' => 'The field which is being commented (e.g. "body").',
+        'description' => 'The field which the comment resides (e.g. "body").',
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
         'default' => '',
       ),
-      'field_value' => array(
-        'description' => 'The value of the field which is actually being used (e.g. "body_value" or "body_summary").',
-        'type' => 'varchar',
-        'length' => 255,
+      'field_summary' => array(
+        'description' => 'Boolean indicating whether this comment resides in the field summary, if applicable.',
+        'type' => 'int',
         'not null' => TRUE,
-        'default' => '',
+        'default' => 0,
       ),
     ),
     'primary key' => array('cid'),

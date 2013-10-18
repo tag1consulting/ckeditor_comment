@@ -133,23 +133,23 @@ function ckeditor_comment_add($type) {
 function ckeditor_comment_form($form, &$form_state, $comment) {
   $form_state['ckeditor_comment'] = $comment;
 
-  $form['title'] = array(
-    '#type' => 'textfield',
-    '#required' => TRUE,
-    '#title' => t('Name'),
-    '#default_value' => $comment->title,
-  );
-
   $form['body'] = array(
     '#type' => 'textarea',
-    '#title' => t('Body'),
+    '#title' => t('Comment'),
     '#default_value' => $comment->body,
   );
 
-  $form['pcid'] = array(
+  $form['pid'] = array(
     '#title' => t('Parent ID'),
     '#type' => 'textfield',
-    '#value' => $comment->pcid,
+    '#value' => $comment->pid,
+  );
+
+  $form['position'] = array(
+    '#type' => 'textfield',
+    '#required' => TRUE,
+    '#title' => t('Position'),
+    '#default_value' => $comment->position,
   );
 
   $form['resolved'] = array(
@@ -194,10 +194,10 @@ function ckeditor_comment_form($form, &$form_state, $comment) {
     '#value' => $comment->field_name,
   );
 
-  $form['field_value'] = array(
-    '#title' => t('Field Value'),
+  $form['field_summary'] = array(
+    '#title' => t('Field Summary'),
     '#type' => 'textfield',
-    '#value' => $comment->field_value,
+    '#value' => $comment->field_summary,
   );
 
   field_attach_form('ckeditor_comment', $comment, $form, $form_state);

@@ -8,13 +8,28 @@
 /*global CKEDITOR:false */
 
 (function ($) {
+  "use strict";
 
   /**
-   * Allow aside elements to live outside of body.
+   * Create new DOM elements: COMMENTS and COMMENT.
    */
-  var nonBodyContent = CKEDITOR.dtd.$nonBodyContent || {};
-  nonBodyContent.aside = 1;
-  CKEDITOR.dtd.$nonBodyContent = nonBodyContent;
+  CKEDITOR.dtd.comments = 1;
+  CKEDITOR.dtd.comment = 1;
+
+  /**
+   * Ensure the COMMENTS and COMMENT elements are not editable.
+   */
+  var $nonEditable = CKEDITOR.dtd.$nonEditable || {};
+  $nonEditable.comments = 1;
+  $nonEditable.comment = 1;
+  CKEDITOR.dtd.$nonEditable = $nonEditable;
+
+  /**
+   * Allow the COMMENTS element to live outside of BODY.
+   */
+  var $nonBodyContent = CKEDITOR.dtd.$nonBodyContent || {};
+  $nonBodyContent.comments = 1;
+  CKEDITOR.dtd.$nonBodyContent = $nonBodyContent;
 
   /**
    * Create comments plugin.
@@ -22,12 +37,13 @@
   CKEDITOR.plugins.add('comments', {
     init : function (editor) {
       // Instantiate a CKEditorComments object if needed.
-      if ((editor.comments = new CKEDITOR.Comments(editor, this))) {
-        // Add button.
+      editor.comments = new CKEDITOR.Comments(editor, this);
+      if (editor.comments.data.commentsEnabled) {
+        // Add comment button.
         editor.ui.addButton('comment', {
           label: 'Comment',
-          command: 'comment_add',
-          icon: this.path + 'images/comment.png'
+          icon: this.path + 'images/comment.png',
+          command: 'comment_add'
         });
         // Add command.
         editor.addCommand('comment_add', {
@@ -35,39 +51,36 @@
             editor.comments.addComment();
           }
         });
+        // Initiate plugin when editor instance is ready.
+        editor.on('instanceReady', function (e) {
+          // Only initiate comments plugin on editors that have the plugin enabled.
+          if (e.editor.comments.data.commentsEnabled) {
+            // Initiate comments plugin on editor.
+            e.editor.comments.init();
+            // Detect editor mode switches.
+            e.editor.on('mode', function () {
+              // Switched to "wysiwyg" mode.
+              if (e.editor.mode === 'wysiwyg') {
+                // Initiate comments plugin on editor again.
+                e.editor.comments.init();
+              }
+              // If switching to source, instantiate a new instance of comments
+              // so it can be re-initialized if switched back to 'wysiwyg' mode.
+              else if (e.editor.mode === 'source') {
+                e.editor.comments = new CKEDITOR.Comments(e.editor, e.editor.comments.plugin);
+              }
+            });
+          }
+        });
       }
-    }
-  });
-
-  /**
-   * Initiate the comments plugin when the editor's instance is ready.
-   */
-  CKEDITOR.on('instanceReady', function (e) {
-    // Only initiate comments plugin on editors that have the plugin enabled.
-    if (e.editor.comments.enabled) {
-      // Initiate comments plugin on editor.
-      e.editor.comments.init();
-      // Detect editor mode switches.
-      e.editor.on('mode', function () {
-        // Switched to "wysiwyg" mode.
-        if (e.editor.mode === 'wysiwyg') {
-          // Initiate comments plugin on editor again.
-          e.editor.comments.init();
-        }
-        else if (e.editor.mode === 'source') {
-          e.editor.comments.initalized = false;
-        }
-      });
     }
   });
 
   CKEDITOR.Comments = function(editor, plugin) {
     var $textarea = $('#' + editor.name);
-    this.enabled = false;
-    if ($textarea.hasClass('cke-inline-comments')) {
-      this.data = $textarea.data();
+    this.data = $textarea.data();
+    if (this.data.commentsEnabled) {
       this.editor = editor;
-      this.enabled = true;
       this.focusedComment = false;
       this.initalized = false;
       this.loaded = false;
@@ -77,30 +90,54 @@
     return this;
   };
 
+  // Invoke initial plugin behaviors.
+  CKEDITOR.Comments.prototype.init = function() {
+    if (this.initalized) {
+      return;
+    }
+    // Append styles.
+    $('<link/>').attr({
+      type: 'text/css',
+      rel: 'stylesheet',
+      href: this.plugin.path + 'css/comments.css',
+      media: 'screen'
+    }).appendTo($(this.editor.document.$).find('head'));
+    this.createSidebar();
+    this.parse();
+    this.initalized = true;
+  };
+
+  CKEDITOR.Comments.prototype.ajax = function (action, options) {
+    options = options || {};
+    var defaults = {
+      url: Drupal.settings.basePath + 'ajax/ckeditor/comment',
+      type: 'POST',
+      dataType: 'json',
+      data: this.data
+    };
+    options = $.extend(true, defaults, options);
+    options.data.action = action;
+    $.ajax(options);
+  };
+
   // Replaces the IFRAME DOM with the "comments" specific value.
   CKEDITOR.Comments.prototype.load = function() {
     if (this.loaded) {
       return;
     }
     var comments = this;
-    var data = comments.textarea.data();
-    data.action = 'field_comments_load';
-    comments.editor.setReadOnly(true);
-    $.ajax({
-      url: Drupal.settings.basePath + 'ajax/ckeditor/comment',
-      type: 'POST',
-      dataType: 'json',
-      data: data,
-      success: function(json) {
+    this.ajax('comment_load', {
+      success: function (json) {
         if (json.content) {
           $(comments.editor.document.$).find('body').html(json.content);
           comments.parse();
         }
       },
-      complete: function() {
+      complete: function () {
         comments.editor.setReadOnly(false);
       }
     });
+    comments.editor.setReadOnly(true);
     this.loaded = true;
   };
 
@@ -111,7 +148,7 @@
     var comments = this;
     var $document = $(comments.editor.document.$);
     var $body = $document.find('body');
-    var $sidebar = $('<aside/>').addClass('cke-comments-sidebar').attr('data-widget-wrapper', 'true').appendTo($document.find('html'));
+    var $sidebar = $('<comments/>').addClass('cke-comments-sidebar').attr('data-widget-wrapper', 'true').appendTo($document.find('html'));
     var sidebarResize = function () {
       $sidebar.css('left', (($document.find('html').width() - $body.outerWidth()) / 2) + $body.outerWidth() + 20);
     };
@@ -151,23 +188,6 @@
         }
       });
     }
-  };
-
-  // Invoke initial plugin behaviors.
-  CKEDITOR.Comments.prototype.init = function() {
-    if (this.initalized) {
-      return;
-    }
-    // Append styles.
-    $('<link/>').attr({
-      type: 'text/css',
-      rel: 'stylesheet',
-      href: this.plugin.path + 'css/comments.css',
-      media: 'screen'
-    }).appendTo($(this.editor.document.$).find('head'));
-    this.createSidebar();
-    this.parse();
-    this.initalized = true;
   };
 
   CKEDITOR.Comments.prototype.addComment = function() {

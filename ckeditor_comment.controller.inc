@@ -1,20 +1,29 @@
 <?php
+/**
+ * @file
+ * ckeditor_comment classes.
+ */
 
+/**
+ * Class CKEditorCommentController.
+ */
 class CKEditorCommentController extends EntityAPIController {
-
+  /**
+   * {@inheritdoc}
+   */
   public function create(array $values = array()) {
     global $user;
     $values += array(
-      'title' => '',
       'body' => '',
-      'pcid' => 0,
+      'pid' => 0,
       'resolved' => 0,
+      'position' => '',
       'entity_id' => '',
       'entity_vid' => '',
       'entity_type' => 'node',
       'entity_bundle' => '',
       'field_name' => '',
-      'field_value' => '',
+      'field_summary' => '',
       'created' => REQUEST_TIME,
       'changed' => REQUEST_TIME,
       'uid' => $user->uid,
@@ -22,6 +31,9 @@ class CKEditorCommentController extends EntityAPIController {
     return parent::create($values);
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function buildContent($entity, $view_mode = 'full', $langcode = NULL, $content = array()) {
     $wrapper = entity_metadata_wrapper('ckeditor_comment', $entity);
     $content['author'] = array('#markup' => t('Created by: !author', array('!author' => $wrapper->uid->name->value(array('sanitize' => TRUE)))));
@@ -30,7 +42,7 @@ class CKEditorCommentController extends EntityAPIController {
     $content['body'] = array(
       '#theme' => 'field',
       '#weight' => 0,
-      '#title' =>t('Description'),
+      '#title' => t('Comment'),
       '#access' => TRUE,
       '#label_display' => 'above',
       '#view_mode' => 'full',
@@ -39,17 +51,28 @@ class CKEditorCommentController extends EntityAPIController {
       '#field_type' => 'text',
       '#entity_type' => 'ckeditor_comment',
       '#bundle' => $entity->type,
-      '#items' => array(array('value' => $entity->body)),
+      '#items' => array(
+        array(
+          'value' => $entity->body,
+        ),
+      ),
       '#formatter' => 'text_default',
-      0 => array('#markup' => check_plain($entity->body))
+      0 => array(
+        '#markup' => check_plain($entity->body),
+      ),
     );
-
     return parent::buildContent($entity, $view_mode, $langcode, $content);
   }
 }
 
- class CKEditorCommentTypeController extends EntityAPIControllerExportable {
-   public function create(array $values = array()) {
+/**
+ * Class CKEditorCommentTypeController.
+ */
+class CKEditorCommentTypeController extends EntityAPIControllerExportable {
+  /**
+   * {@inheritdoc}
+   */
+  public function create(array $values = array()) {
     $values += array(
       'label' => '',
       'description' => '',
