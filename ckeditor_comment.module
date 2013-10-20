@@ -94,18 +94,29 @@ function ckeditor_comment_ajax_callback() {
   $json = array();
   // @todo put in some XSS validation here.
   switch ($_POST['action']) {
-    // @todo create a function to save a comment.
     case 'comment_save:':
+      $comments = isset($_POST['comments']) ? $_POST['comments'] : array();
+      foreach ($comments as $_comment) {
+        if (empty($_comment)) {
+          continue;
+        }
+        $comment = new CKEditorComment();
+        foreach ($_comment as $key => $value) {
+          $comment->{$key} = $value;
+        }
+        $saved = ckeditor_comment_save($comment);
+        if ($saved === SAVED_NEW || $saved === SAVED_UPDATED) {
+          $json['comments'][$comment->cid] = $comment;
+        }
+      }
       break;
 
     case 'comment_load':
       $json['comments'] = array();
       $cids = array();
-      if (!empty($_POST['cids']) && is_array($_POST['cids'])) {
-        $cids = $_POST['cid'];
-      }
-      if (!empty($_POST['cid']) && !is_array($_POST['cid'])) {
-        $cids[] = $_POST['cid'];
+      $_comments = isset($_POST['comments']) ? $_POST['comments'] : array();
+      foreach ($_comments as $cid) {
+        $cids[] = $cid;
       }
       $comments = ckeditor_comment_load_multiple($cids, array(
         'entity_type' => $_POST['entityType'],
@@ -117,8 +128,9 @@ function ckeditor_comment_ajax_callback() {
       ));
       if (!empty($comments)) {
         foreach ($comments as $comment) {
-          $json['comments'][$comment->cid] = '<strong>' . format_username(user_load($comment->uid)) . '</strong>';
-          $json['comments'][$comment->cid] .= '<div class="comment">' . $comment->body . '</div>';
+          if ($build = entity_view('ckeditor_comment', array($comment), 'comment')) {
+            $json['comments'][$comment->cid] = render($build);
+          }
         }
       }
       break;
@@ -431,21 +443,21 @@ function ckeditor_comment_load_multiple($cids = array(), $conditions = array(), 
  * Save ckeditor_comment.
  */
 function ckeditor_comment_save($comment) {
-  entity_save('ckeditor_comment', $comment);
+  return entity_save('ckeditor_comment', $comment);
 }
 
 /**
  * Delete single ckeditor_comment.
  */
 function ckeditor_comment_delete($comment) {
-  entity_delete('ckeditor_comment', entity_id('ckeditor_comment' ,$comment));
+  return entity_delete('ckeditor_comment', entity_id('ckeditor_comment' ,$comment));
 }
 
 /**
  * Delete multiple ckeditor_comments.
  */
 function ckeditor_comment_delete_multiple($comment_ids) {
-  entity_delete_multiple('ckeditor_comment', $comment_ids);
+  return entity_delete_multiple('ckeditor_comment', $comment_ids);
 }
 
 

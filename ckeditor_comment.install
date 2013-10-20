@@ -63,8 +63,8 @@ function ckeditor_comment_schema() {
         'not null' => TRUE,
         'default' => 0,
       ),
-      'position' => array(
-        'description' => 'The position of the comment in the field.',
+      'bookmarks' => array(
+        'description' => 'The position of bookmarks for the comment inside CKEditor.',
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,

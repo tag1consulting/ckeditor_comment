@@ -1,8 +1,9 @@
-name = CKEditor Inline Comments
-description = Provides plugin to add support for inline commenting in CKEditor.
+name = CKEditor Comment
+description = Provides a plugin for supporting inline commenting in CKEditor.
 core = 7.x
 package = CKEditor
 
+dependencies[] = ckeditor
 dependencies[] = entity
 dependencies[] = views
 

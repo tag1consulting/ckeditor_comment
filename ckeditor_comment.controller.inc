@@ -17,7 +17,7 @@ class CKEditorCommentController extends EntityAPIController {
       'body' => '',
       'pid' => 0,
       'resolved' => 0,
-      'position' => '',
+      'bookmarks' => '',
       'entity_id' => '',
       'entity_vid' => '',
       'entity_type' => 'node',

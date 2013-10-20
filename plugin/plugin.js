@@ -1,6 +1,6 @@
 /**
  * @file
- * Plugin to support inline commenting in CKEditor.
+ * Provides a plugin for supporting inline commenting in CKEditor.
  */
 
 /*global jQuery:false */
@@ -17,11 +17,10 @@
   CKEDITOR.dtd.comment = 1;
 
   /**
-   * Ensure the COMMENTS and COMMENT elements are not editable.
+   * Ensure the COMMENTS element is not editable.
    */
   var $nonEditable = CKEDITOR.dtd.$nonEditable || {};
   $nonEditable.comments = 1;
-  $nonEditable.comment = 1;
   CKEDITOR.dtd.$nonEditable = $nonEditable;
 
   /**
@@ -32,7 +31,21 @@
   CKEDITOR.dtd.$nonBodyContent = $nonBodyContent;
 
   /**
-   * Create comments plugin.
+   * Allow the COMMENT element to be treated as inline.
+   */
+  var $inline = CKEDITOR.dtd.$inline || {};
+  $inline.comment = 1;
+  CKEDITOR.dtd.$inline = $inline;
+
+  /**
+   * Allow the COMMENT element to be treated as editable.
+   */
+  var $editable = CKEDITOR.dtd.$editable || {};
+  $editable.comment = 1;
+  CKEDITOR.dtd.$editable = $editable;
+
+  /**
+   * Creates the "comments" plugin for CKEditor.
    */
   CKEDITOR.plugins.add('comments', {
     init : function (editor) {
@@ -47,7 +60,9 @@
         });
         // Add command.
         editor.addCommand('comment_add', {
-          exec : function () {
+          canUndo: false, // No support for undo/redo
+          modes: { wysiwyg:1 }, // Command is available in wysiwyg mode only.
+          exec: function () {
             editor.comments.addComment();
           }
         });
@@ -76,6 +91,18 @@
     }
   });
 
+  /**
+   * Creates a new CKEDITOR.Comments() instance for editor.
+   *
+   * @param editor
+   *   The CKEDITOR.editor instance.
+   * @param plugin
+   *   The CKEDITOR.plugins object that created this instance.
+   *
+   * @returns CKEDITOR.Comments
+   *
+   * @constructor
+   */
   CKEDITOR.Comments = function(editor, plugin) {
     var $textarea = $('#' + editor.name);
     this.data = $textarea.data();
@@ -86,12 +113,16 @@
       this.loaded = false;
       this.plugin = plugin;
       this.sidebar = false;
+      this.items = [];
     }
     return this;
   };
 
-  // Invoke initial plugin behaviors.
+  /**
+   * Initializes a CKEDITOR.Comments instance.
+   */
   CKEDITOR.Comments.prototype.init = function() {
+    var _comments = this;
     if (this.initalized) {
       return;
     }
@@ -104,9 +135,34 @@
     }).appendTo($(this.editor.document.$).find('head'));
     this.createSidebar();
     this.parse();
+    // Detect comments on selectionChange.
+    this.editor.on('selectionChange', function (e) {
+      var range = e.data.selection.getRanges()[0];
+      if (range.collapsed) {
+        var parent = range.startContainer.getParent().$;
+        if (parent.nodeName === "COMMENT") {
+          parent._comment.focus();
+        }
+        else if (_comments.focusedComment) {
+          _comments.focusedComment.blur();
+        }
+      }
+      else if (_comments.focusedComment) {
+        _comments.focusedComment.blur();
+      }
+    });
+    // Blur focused comment on document click.
+    $(this.editor.document.$).on('click', function () {
+      if (_comments.focusedComment) {
+        _comments.focusedComment.blur();
+      }
+    });
     this.initalized = true;
   };
 
+  /**
+   * AJAX callback for retrieving data using default parameters.
+   */
   CKEDITOR.Comments.prototype.ajax = function (action, options) {
     options = options || {};
     var defaults = {
@@ -120,115 +176,175 @@
     $.ajax(options);
   };
 
-  // Replaces the IFRAME DOM with the "comments" specific value.
+  /**
+   * Replaces the IFRAME DOM with the "comments" specific value.
+   * @todo remove this, it is really not needed anymore.
+   */
   CKEDITOR.Comments.prototype.load = function() {
     if (this.loaded) {
       return;
     }
-    var comments = this;
     this.ajax('comment_load', {
       success: function (json) {
         if (json.content) {
-          $(comments.editor.document.$).find('body').html(json.content);
-          comments.parse();
+          $(this.editor.document.$).find('body').html(json.content);
+          this.parse();
         }
       },
       complete: function () {
-        comments.editor.setReadOnly(false);
+        this.editor.setReadOnly(false);
       }
     });
-    comments.editor.setReadOnly(true);
+    this.editor.setReadOnly(true);
     this.loaded = true;
   };
 
+  /**
+   * Create the sidebar for containing the actual comments in the editor.
+   */
   CKEDITOR.Comments.prototype.createSidebar = function () {
     if (this.sidebar) {
       return;
     }
-    var comments = this;
-    var $document = $(comments.editor.document.$);
+    var _comments = this;
+    var $document = $(this.editor.document.$);
     var $body = $document.find('body');
-    var $sidebar = $('<comments/>').addClass('cke-comments-sidebar').attr('data-widget-wrapper', 'true').appendTo($document.find('html'));
+    this.sidebar = $('<comments/>').addClass('cke-comments-sidebar').attr('data-widget-wrapper', 'true').appendTo($document.find('html'));
     var sidebarResize = function () {
-      $sidebar.css('left', (($document.find('html').width() - $body.outerWidth()) / 2) + $body.outerWidth() + 20);
+      _comments.sidebar.css('left', (($document.find('html').width() - $body.outerWidth(false)) / 2) + $body.outerWidth(false) + 20);
     };
     $(window).on('resize.cke-comments-sidebar', function () {
       sidebarResize();
     });
-    comments.editor.on('afterCommandExec', function (e) {
+    this.editor.on('afterCommandExec', function (e) {
       if (e.data.name === 'maximize') {
         sidebarResize();
       }
     });
     sidebarResize();
-    comments.sidebar = $('<div/>').addClass('cke-comments').attr('data-widget-wrapper', 'true').appendTo($sidebar);
   };
 
+  /**
+   * Parse document for existing comments.
+   * @todo remove this, it is really not needed anymore.
+   */
   CKEDITOR.Comments.prototype.parse = function() {
-    var comments = this;
-    var $document = $(comments.editor.document.$);
+    var _comments = this;
+    var $document = $(this.editor.document.$);
     var $body = $document.find('body');
-    var $comments = $body.find('span[data-cid]');
-    if ($comments.length) {
-      $comments
-        .on('parse.comments', function () {
-          var comment = new comments.Comment(this);
-          comment.load(comments.sidebar);
-          this.comment = comment;
-        })
-        .on('mousedown.comment', function (e) {
-          var element = this;
-          element.comment.focus();
-          e.stopPropagation();
-        })
-        .trigger('parse.comments');
-      $document.on('mousedown.clear-comment', function () {
-        if (comments.focusedComment) {
-          comments.focusedComment.blur();
-        }
-      });
-    }
+    $body.find('comment')
+      .on('parse.comment', function () {
+        _comments.items.push(new CKEDITOR.Comment(_comments, this));
+      })
+      .trigger('parse.comment');
   };
 
+  /**
+   * Add a comment via the CKEditor button.
+   */
   CKEDITOR.Comments.prototype.addComment = function() {
-    var selected_text = this.editor.getSelection().getSelectedText();
-    var newElement = new CKEDITOR.dom.element('span');
-    newElement.setAttributes({
-      'data-cid': ''
-    });
-    newElement.setText(selected_text);
-    this.editor.insertElement(newElement);
+    var selection = this.editor.getSelection(), range = selection.getRanges()[0];
+    // Allow single caret positions to expand into a word selection.
+    if (range.collapsed) {
+      var nativeSel = selection._.cache.nativeSel;
+      if (window.getSelection && nativeSel.modify) {
+        nativeSel.collapseToStart();
+        nativeSel.modify("move", "backward", "word");
+        nativeSel.modify("extend", "forward", "word");
+      }
+    }
+    var bookmarks = selection.createBookmarks2();
+    var selected_text = selection.getSelectedText();
+    var element = new CKEDITOR.dom.element('comment');
+    element.setAttribute('data-cid', false);
+    element.setText(selected_text);
+    this.editor.insertElement(element);
+    var comment = new CKEDITOR.Comment(this, element.$, bookmarks);
+    comment.focus();
   };
 
-  CKEDITOR.Comments.prototype.Comment = function(element) {
-    this.element = $(element);
-    this.cid = this.element.data('cid');
+
+  /**
+   * Creates a new CKEDITOR.Comment() instance for editor.
+   *
+   * @param comments
+   *   The CKEDITOR.Comments() instance this comment resides in.
+   * @param element
+   *   The selection element (inline comment element) from the editor.
+   * @param bookmarks
+   *   The CKEDITOR.dom.range bookmarks from selection.
+   *
+   * @returns CKEDITOR.Comment
+   *
+   * @constructor
+   */
+  CKEDITOR.Comment = function(comments, element, bookmarks) {
+    this._comments = comments;
+    element._comment = this;
+    bookmarks = bookmarks || {};
     this.loaded = false;
+    this.cid = $(element).data('cid');
+    this.bookmarks = bookmarks;
+    this.inlineElement = $(element);
+    this.initialized = false;
+    this.init();
     return this;
   };
-  CKEDITOR.Comments.prototype.Comment.prototype.blur = function() {
-    this.element.removeClass('active');
-    this.comment.removeClass('active');
-  };
-  CKEDITOR.Comments.prototype.Comment.prototype.focus = function() {
-    if (this.focusedComment) {
-      this.focusedComment.blur();
+
+  /**
+   * Initializes a CKEDITOR.Comment() instance.
+   */
+  CKEDITOR.Comment.prototype.init = function() {
+    if (this.initalized) {
+      return;
     }
-    this.element.addClass('active');
-    this.comment.addClass('active');
-    this.focusedComment = this;
+    this.inlineElement.on('mousedown.comment', function (e) {
+      this._comment.focus();
+      e.stopPropagation();
+    });
+    this.sidebarElement = $('<comment/>')
+      .addClass('cke-comment')
+      .attr('data-widget-wrapper', 'true')
+      .css('top', (this.inlineElement.position().top - (this.inlineElement.outerHeight(false) / 2)) + 'px')
+      .on('click.comment', function (e) {
+        this._comment.focus();
+        e.stopPropagation();
+      })
+      .appendTo(this._comments.sidebar);
+    this.sidebarElement[0]._comment = this;
+    this.elements = $().add(this.inlineElement).add(this.sidebarElement);
+    this.elements.on('click', function (e) {
+      e.stopPropagation();
+    });
+    this._comments.items.push(this);
   };
-  CKEDITOR.Comments.prototype.Comment.prototype.load = function(element) {
+
+  /**
+   * Remove focus from comment.
+   */
+  CKEDITOR.Comment.prototype.blur = function() {
+    this.elements.removeClass('focus').blur();
+  };
+
+  /**
+   * Add focus to comment.
+   */
+  CKEDITOR.Comment.prototype.focus = function() {
+    if (this._comments.focusedComment && this._comments.focusedComment !== this) {
+      this._comments.focusedComment.blur();
+    }
+    this.elements.addClass('focus').focus();
+    this._comments.focusedComment = this;
+  };
+
+  /**
+   * Load a comment form the DB.
+   */
+  CKEDITOR.Comment.prototype.load = function() {
     if (this.loaded) {
       return;
     }
-    var $comment = $('<div/>')
-      .addClass('cke-comment').attr('data-ml-ignore', 'true')
-      .on('click.comment', function () {
-        var element = this;
-        element.comment.focus();
-      })
-      .appendTo(element);
+    var $comment = this.sidebarElement;
     var data = { cid: this.cid };
     data.action = 'comment_load';
     $.ajax({
@@ -243,12 +359,16 @@
       }
     });
     this.loaded = true;
-    $comment[0].comment = this;
-    this.comment = $comment;
   };
-  CKEDITOR.Comments.prototype.Comment.prototype.resolve = function() {
+
+  // Resolve comment.
+  // @todo add functionality
+  CKEDITOR.Comment.prototype.resolve = function() {
   };
-  CKEDITOR.Comments.prototype.Comment.prototype.save = function() {
+
+  // Save comment.
+  // @todo add functionality
+  CKEDITOR.Comment.prototype.save = function() {
   };
 
 
