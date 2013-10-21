@@ -112,6 +112,7 @@
       this.initalized = false;
       this.loaded = false;
       this.plugin = plugin;
+      this.positionQueue = [];
       this.sidebar = false;
       this.items = [];
     }
@@ -178,8 +179,8 @@
 
   /**
    * Replaces the IFRAME DOM with the "comments" specific value.
-   * @todo remove this, it is really not needed anymore.
    */
+  // @todo remove this, it is really not needed anymore.
   CKEDITOR.Comments.prototype.load = function() {
     if (this.loaded) {
       return;
@@ -226,8 +227,8 @@
 
   /**
    * Parse document for existing comments.
-   * @todo remove this, it is really not needed anymore.
    */
+  // @todo remove this, it is really not needed anymore.
   CKEDITOR.Comments.prototype.parse = function() {
     var _comments = this;
     var $document = $(this.editor.document.$);
@@ -284,6 +285,7 @@
     bookmarks = bookmarks || {};
     this.loaded = false;
     this.cid = $(element).data('cid');
+    this.uid = false;
     this.bookmarks = bookmarks;
     this.inlineElement = $(element);
     this.initialized = false;
@@ -305,7 +307,6 @@
     this.sidebarElement = $('<comment/>')
       .addClass('cke-comment')
       .attr('data-widget-wrapper', 'true')
-      .css('top', (this.inlineElement.position().top - (this.inlineElement.outerHeight(false) / 2)) + 'px')
       .on('click.comment', function (e) {
         this._comment.focus();
         e.stopPropagation();
@@ -316,7 +317,37 @@
     this.elements.on('click', function (e) {
       e.stopPropagation();
     });
+    if (!this.uid) {
+      this.assignUser(Drupal.settings.ckeditor_comment.currentUser);
+    }
     this._comments.items.push(this);
+  };
+
+  /**
+   * Build header.
+   */
+  CKEDITOR.Comment.prototype.assignUser = function(user) {
+    function rand(min, max) {
+      return parseInt(Math.random() * (max-min+1), 10) + min;
+    }
+    function random_color() {
+      var h = rand(1, 360);
+      var s = rand(20, 80);
+      var l = rand(30, 70);
+      return 'hsl(' + h + ',' + s + '%,' + l + '%)';
+    }
+    if (!user.color) {
+      user.color = random_color();
+    }
+    // Assign the user color.
+    this.inlineElement.css('borderColor', user.color);
+    $('<div/>').addClass('color').css('backgroundColor', user.color).appendTo(this.sidebarElement);
+    // Create header with picture, name and timestamp.
+    var $header = $('<header/>').prependTo(this.sidebarElement);
+    var date = new Date();
+    $header.append(user.picture);
+    $('<span/>').attr('rel', 'author').addClass('name').html(user.name).appendTo($header);
+    $('<time/>').html(date.toLocaleString()).appendTo($header);
   };
 
   /**
@@ -324,17 +355,89 @@
    */
   CKEDITOR.Comment.prototype.blur = function() {
     this.elements.removeClass('focus').blur();
+    if (!this._comments.focusedComment) {
+      // Align sidebar comment with position of the inline comment.
+      this.sidebarElement.css('top', (this.inlineElement.position().top - (this.inlineElement.outerHeight(false) / 2)) + 'px');
+    }
   };
 
   /**
    * Add focus to comment.
    */
   CKEDITOR.Comment.prototype.focus = function() {
+    // Blur the currently focused comment.
     if (this._comments.focusedComment && this._comments.focusedComment !== this) {
       this._comments.focusedComment.blur();
     }
+
+    // Focus this comment.
     this.elements.addClass('focus').focus();
+
+    // Re-arrange touching comments.
+    this.arrangeComments();
+
+    // Set this comment as the currently focused comment.
     this._comments.focusedComment = this;
+  };
+
+  /**
+   * Position comment.
+   */
+  CKEDITOR.Comment.prototype.arrangeComments = function() {
+    // Prevent comments from being positioned twice.
+    if ($.inArray(this.sidebarElement[0], this._comments.positionQueue) !== -1) {
+      return;
+    }
+
+    // Determine if queue was empty when called.
+    var emptyQueue = (this._comments.positionQueue.length === 0);
+
+    if (emptyQueue) {
+      // Align sidebar comment with position of the inline comment.
+      this.sidebarElement.css('top', (this.inlineElement.position().top - (this.inlineElement.outerHeight(false) / 2)) + 'px');
+    }
+
+    // Place this comment into queue.
+    this._comments.positionQueue.push(this.sidebarElement[0]);
+
+    var commentTop = this.inlineElement.position().top;
+
+    // Re-position each comment that is currently touching this one.
+    var touchingComments = this.sidebarElement.touching('comment', { container: this._comments.sidebar, tolerance: 10 });
+    if (touchingComments.length) {
+      for (var i = 0; i < touchingComments.length; i++) {
+        // Skip comments that have already been positioned.
+        if ($.inArray(touchingComments[i], this._comments.positionQueue) !== -1) {
+          continue;
+        }
+        var touching = touchingComments[i]._comment;
+        var touchingTop = touching.sidebarElement.offset().top;
+        var touchingHeight = touching.sidebarElement.outerHeight(false);
+
+        // Figure out where the comment should be positioned.
+        var commentPosition = $.inArray(this, this._comments.items);
+        var touchingPosition = $.inArray(touching, this._comments.items);
+
+        // Position before this comment.
+        if (touchingPosition < commentPosition) {
+          touchingTop = (commentTop - touchingHeight) - 10;
+        }
+        // Position after this comment.
+        else {
+          touchingTop = (commentTop + this.sidebarElement.outerHeight(false)) + 10;
+        }
+
+        // Set the top position for this touching comment.
+        touching.sidebarElement.css('top', touchingTop + 'px');
+
+        // Re-arrange any touching comments around this touching comment.
+        touching.arrangeComments();
+      }
+    }
+
+    if (emptyQueue) {
+      this._comments.positionQueue.length = [];
+    }
   };
 
   /**

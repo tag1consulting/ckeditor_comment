@@ -83,8 +83,23 @@ function ckeditor_comment_menu() {
     'type' => MENU_NORMAL_ITEM,
     'file' => 'ckeditor_comment.admin.inc',
   );
-
   return $items;
+}
+
+/**
+ * Implements hook_library().
+ */
+function ckeditor_comment_library() {
+  // Library One.
+  $libraries['jquery.nearest'] = array(
+    'title' => 'jQuery Nearest Element',
+    'website' => 'http://gilmoreorless.github.io/jquery-nearest/',
+    'version' => '1.2.1',
+    'js' => array(
+      drupal_get_path('module', 'ckeditor_comment') . '/libraries/jquery.nearest/jquery.nearest.js' => array(),
+    ),
+  );
+  return $libraries;
 }
 
 /**
@@ -173,6 +188,7 @@ function _ckeditor_comment_process_text_format(&$element, &$form_state) {
     && !empty($element['#language'])
     && !empty($form_state['field'][$element['#field_name']][$element['#language']]['instance']['settings']['ckeditor_comment'])
   ) {
+    drupal_add_library('ckeditor_comment', 'jquery.nearest');
     $field = $form_state['field'][$element['#field_name']][$element['#language']]['field'];
     list($entity_id, $entity_vid, $entity_bundle) = entity_extract_ids($element['#entity_type'], $element['#entity']);
     $attributes = array(
@@ -242,16 +258,79 @@ function ckeditor_comment_ckeditor_plugin() {
 }
 
 /**
- * Generate a unique random color.
+ * Implements hook_ckeditor_settings_alter().
  */
-function _ckeditor_comment_generate_color() {
-  static $colors = array();
-  $color = sprintf("#%06x", rand(0, 16777215));
-  // If color was already generated, generate a new one.
-  if (in_array($color, $colors)) {
-    return _ckeditor_comment_generate_color();
+function ckeditor_comment_ckeditor_settings_alter(&$settings) {
+  static $init = FALSE;
+  if (!$init) {
+    global $user;
+    $init = TRUE;
+    $current_user = array(
+      'uid' => $user->uid,
+      'name' => format_username($user),
+      'picture' => ckeditor_comment_user_picture($user),
+    );
+    drupal_add_js(array(
+      'ckeditor_comment' => array(
+        'currentUser' => $current_user,
+      ),
+    ), 'setting');
   }
-  return $colors[] = $color;
+}
+
+/**
+ * Helper function for returning a user picture.
+ */
+function ckeditor_comment_user_picture($user) {
+  $picture = '';
+  if (!empty($user->picture)) {
+    if (is_numeric($user->picture)) {
+      $user->picture = file_load($user->picture);
+    }
+    if (!empty($user->picture->uri)) {
+      $filepath = $user->picture->uri;
+    }
+  }
+  // Provide a default image.
+  else {
+    $filepath = drupal_get_path('module', 'ckeditor_comment') . '/images/default_user.png';
+  }
+  if (isset($filepath)) {
+    if (module_exists('image') && file_valid_uri($filepath)) {
+      $picture = theme('image_style', array(
+        'style_name' => 'ckeditor_comment',
+        'path' => $filepath,
+        'alt' => '',
+      ));
+    }
+    else {
+      $picture = theme('image', array(
+        'path' => $filepath,
+        'alt' => '',
+      ));
+    }
+  }
+  return $picture;
+}
+
+/**
+ * Implements hook_image_default_styles().
+ */
+function ckeditor_comment_image_default_styles() {
+  $styles['ckeditor_comment'] = array(
+    'label' => 'CKEditor Comment',
+    'effects' => array(
+      array(
+        'name' => 'image_scale_and_crop',
+        'data' => array(
+          'width' => 92,
+          'height' => 92,
+        ),
+        'weight' => 0,
+      ),
+    ),
+  );
+  return $styles;
 }
 
 //** CKEditorComment entity functions. **//

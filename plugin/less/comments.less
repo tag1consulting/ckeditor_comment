@@ -30,6 +30,7 @@ body.cke_editable {
 
 // Sidebar comments.
 comments {
+  bottom: 10px;
   font-family: Arial, sans-serif, sans;
   font-size: 1.3rem;
   position: absolute;
@@ -45,7 +46,7 @@ comments {
     cursor: pointer;
     margin: 10px 0;
     min-height: 40px;
-    padding: 8px;
+    padding: 8px 13px 8px 8px;
     position: absolute;
     -moz-transition: margin 0.2s ease-in;
     -webkit-transition: margin 0.2s ease-in;
@@ -68,7 +69,7 @@ comments {
       background: #fcfac6;
       border-color: #ffe572;
       box-shadow: 0 0 5px rgba(0,0,0,.10);
-      margin-left: -15px;
+      margin-left: -20px;
       z-index: 1000;
       &:before {
         content: " ";
@@ -90,6 +91,32 @@ comments {
         top: 0;
         left: -12px;
       }
+    }
+    header {
+      img {
+        float: left;
+        height: auto;
+        margin-right: 5px;
+        width: 24px;
+      }
+      .name {
+        display: block;
+        font-size: 13px;
+        font-weight: bold;
+      }
+      time {
+        color: #666;
+        display: block;
+        font-size: 10px;
+        line-height: 1em;
+      }
+    }
+    .color {
+      bottom: -1px;
+      position: absolute;
+      right: -1px;
+      top: -1px;
+      width: 5px;
     }
     .comment {
       color: #666;
