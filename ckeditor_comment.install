@@ -11,6 +11,35 @@ function ckeditor_comment_install() {
   $type->description = 'Default CKEditor comment type.';
   $type->status = 1;
   ckeditor_comment_type_save($type);
+
+  // Add a body field to our comment entity.
+  $field = field_info_field('ckeditor_comment_body');
+  if (empty($field)) {
+    $field = array(
+      'field_name' => 'ckeditor_comment_body',
+      'type' => 'text_long',
+      'entity_types' => array('ckeditor_comment'),
+    );
+    $field = field_create_field($field);
+  }
+  $instance = field_info_instance('ckeditor_comment', 'ckeditor_comment_body', 'default');
+  if (empty($instance)) {
+    $instance = array(
+      'field_name' => 'ckeditor_comment_body',
+      'entity_type' => 'ckeditor_comment',
+      'bundle' => 'default',
+      'label' => t('Body'),
+      'widget' => array('type' => 'text_textarea'),
+    );
+    $instance = field_create_instance($instance);
+  }
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function ckeditor_comment_uninstall() {
+  field_delete_instance(field_info_instance('ckeditor_comment', 'ckeditor_comment_body', 'default'));
 }
 
 /**
@@ -70,10 +99,6 @@ function ckeditor_comment_schema() {
         'not null' => TRUE,
         'default' => '',
         'serialize' => TRUE,
-      ),
-      'body' => array(
-        'description' => 'The comment body.',
-        'type' => 'text',
       ),
       'resolved' => array(
         'description' => 'Boolean indicating whether the comment is resolved.',

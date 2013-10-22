@@ -14,7 +14,6 @@ class CKEditorCommentController extends EntityAPIController {
   public function create(array $values = array()) {
     global $user;
     $values += array(
-      'body' => '',
       'pid' => 0,
       'resolved' => 0,
       'bookmarks' => '',
@@ -38,29 +37,6 @@ class CKEditorCommentController extends EntityAPIController {
     $wrapper = entity_metadata_wrapper('ckeditor_comment', $entity);
     $content['author'] = array('#markup' => t('Created by: !author', array('!author' => $wrapper->uid->name->value(array('sanitize' => TRUE)))));
 
-    // Make Summary and Status themed like default fields.
-    $content['body'] = array(
-      '#theme' => 'field',
-      '#weight' => 0,
-      '#title' => t('Comment'),
-      '#access' => TRUE,
-      '#label_display' => 'above',
-      '#view_mode' => 'full',
-      '#language' => LANGUAGE_NONE,
-      '#field_name' => 'field_fake_body',
-      '#field_type' => 'text',
-      '#entity_type' => 'ckeditor_comment',
-      '#bundle' => $entity->type,
-      '#items' => array(
-        array(
-          'value' => $entity->body,
-        ),
-      ),
-      '#formatter' => 'text_default',
-      0 => array(
-        '#markup' => check_plain($entity->body),
-      ),
-    );
     return parent::buildContent($entity, $view_mode, $langcode, $content);
   }
 }
@@ -111,7 +87,7 @@ class CKEditorCommentTypeUIController extends EntityDefaultUIController {
  */
 class CKEditorComment extends Entity {
   protected function defaultLabel() {
-    return $this->title;
+    return truncate_utf8(strip_tags($this->ckeditor_comment_body[LANGUAGE_NONE][0]['value']), 50, TRUE, TRUE);
   }
 
   protected function defaultUri() {
