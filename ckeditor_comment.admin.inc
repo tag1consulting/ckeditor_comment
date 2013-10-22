@@ -133,12 +133,6 @@ function ckeditor_comment_add($type) {
 function ckeditor_comment_form($form, &$form_state, $comment) {
   $form_state['ckeditor_comment'] = $comment;
 
-  $form['body'] = array(
-    '#type' => 'textarea',
-    '#title' => t('Comment'),
-    '#default_value' => $comment->body,
-  );
-
   $form['pid'] = array(
     '#title' => t('Parent ID'),
     '#type' => 'textfield',
