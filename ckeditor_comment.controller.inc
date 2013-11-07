@@ -12,32 +12,7 @@ class CKEditorCommentController extends EntityAPIController {
    * {@inheritdoc}
    */
   public function create(array $values = array()) {
-    global $user;
-    $values += array(
-      'pid' => 0,
-      'resolved' => 0,
-      'bookmarks' => '',
-      'entity_id' => '',
-      'entity_vid' => '',
-      'entity_type' => 'node',
-      'entity_bundle' => '',
-      'field_name' => '',
-      'field_summary' => '',
-      'created' => REQUEST_TIME,
-      'changed' => REQUEST_TIME,
-      'uid' => $user->uid,
-    );
     return parent::create($values);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function buildContent($entity, $view_mode = 'full', $langcode = NULL, $content = array()) {
-    $wrapper = entity_metadata_wrapper('ckeditor_comment', $entity);
-    $content['author'] = array('#markup' => t('Created by: !author', array('!author' => $wrapper->uid->name->value(array('sanitize' => TRUE)))));
-
-    return parent::buildContent($entity, $view_mode, $langcode, $content);
   }
 }
 
@@ -86,6 +61,13 @@ class CKEditorCommentTypeUIController extends EntityDefaultUIController {
  * CKEditorComment class.
  */
 class CKEditorComment extends Entity {
+  /**
+   * @{inheritdoc}
+   */
+  public function __construct(array $values = array(), $entityType = NULL) {
+    parent::__construct($values, 'ckeditor_comment');
+  }
+
   protected function defaultLabel() {
     return truncate_utf8(strip_tags($this->ckeditor_comment_body[LANGUAGE_NONE][0]['value']), 50, TRUE, TRUE);
   }

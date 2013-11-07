@@ -93,11 +93,10 @@ function ckeditor_comment_schema() {
         'default' => 0,
       ),
       'bookmarks' => array(
-        'description' => 'The position of bookmarks for the comment inside CKEditor.',
-        'type' => 'varchar',
-        'length' => 255,
+        'description' => 'The serialized array of CKEditor bookmarks to position the comment.',
+        'type' => 'text',
         'not null' => TRUE,
-        'default' => '',
+        'size' => 'normal',
         'serialize' => TRUE,
       ),
       'resolved' => array(

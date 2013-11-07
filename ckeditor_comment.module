@@ -109,20 +109,52 @@ function ckeditor_comment_ajax_callback() {
   $json = array();
   // @todo put in some XSS validation here.
   switch ($_POST['action']) {
-    case 'comment_save:':
+    case 'comment_save':
       $comments = isset($_POST['comments']) ? $_POST['comments'] : array();
       foreach ($comments as $_comment) {
         if (empty($_comment)) {
           continue;
         }
-        $comment = new CKEditorComment();
+        $comment = new CKEditorComment(array(
+          // @todo figure out how we do different bundles here.
+          'type' => 'default',
+          'uid' => $GLOBALS['user']->uid,
+          'bookmarks' => array(),
+          'changed' => REQUEST_TIME,
+          'entity_type' => $_POST['entityType'],
+          'entity_bundle' => $_POST['entityBundle'],
+          'entity_id' => $_POST['entityId'],
+          'entity_vid' => $_POST['entityVid'],
+          'field_name' => $_POST['fieldName'],
+          'field_summary' => $_POST['fieldSummary'],
+        ));
+        $wrapper = entity_metadata_wrapper('ckeditor_comment', $comment);
+        $property_info = entity_get_all_property_info('ckeditor_comment');
+        $schema_info = drupal_get_schema('ckeditor_comment');
         foreach ($_comment as $key => $value) {
-          $comment->{$key} = $value;
+          if ($key === 'cid' && $value === 'false') {
+            continue;
+          }
+          if (in_array($key, array_keys($property_info))) {
+            $property = $wrapper->get($key);
+            if (!empty($property_info[$key]['setter callback'])) {
+              $type = $property_info[$key]['type'];
+              if ($type === 'text') {
+                $type = 'string';
+              }
+              settype($value, $type);
+              $property->set($value);
+            }
+            elseif (in_array($key, array_keys($schema_info['fields']))) {
+              $comment->{$key} = $value;
+            }
+          }
         }
-        $saved = ckeditor_comment_save($comment);
-        if ($saved === SAVED_NEW || $saved === SAVED_UPDATED) {
-          $json['comments'][$comment->cid] = $comment;
+        if (!isset($comment->cid)) {
+          $comment->created = $comment->changed;
         }
+        $wrapper->save();
+        $json['comments'][] = ckeditor_comment_build_comment($comment);
       }
       break;
 
@@ -140,18 +172,33 @@ function ckeditor_comment_ajax_callback() {
         'entity_vid' => $_POST['entityVid'],
         'field_name' => $_POST['fieldName'],
         'field_summary' => $_POST['fieldSummary'],
-      ));
-      if (!empty($comments)) {
-        foreach ($comments as $comment) {
-          if ($build = entity_view('ckeditor_comment', array($comment), 'comment')) {
-            $json['comments'][$comment->cid] = render($build);
-          }
-        }
+      ), TRUE);
+      foreach ($comments as $comment) {
+        $json['comments'][] = ckeditor_comment_build_comment($comment);
       }
       break;
   }
   drupal_json_output($json);
   drupal_exit();
+}
+
+/**
+ * Helper function for building renderable content inside the comment entity.
+ *
+ * @param CKEditorComment $comment
+ *   The CKEditorComment entity to build.
+ *
+ * @return CKEditorComment
+ *   Returns CKEditorComment entity.
+ */
+function ckeditor_comment_build_comment($comment) {
+  $user = user_load((int) $comment->uid);
+  $comment->name = format_username($user);
+  $comment->picture = ckeditor_comment_user_picture($user);
+  if ($build = entity_view('ckeditor_comment', array($comment), 'full', NULL, TRUE)) {
+    $comment->content = render(reset($build));
+  }
+  return $comment;
 }
 
 /**
@@ -191,6 +238,15 @@ function _ckeditor_comment_process_text_format(&$element, &$form_state) {
     drupal_add_library('ckeditor_comment', 'jquery.nearest');
     $field = $form_state['field'][$element['#field_name']][$element['#language']]['field'];
     list($entity_id, $entity_vid, $entity_bundle) = entity_extract_ids($element['#entity_type'], $element['#entity']);
+    $query = new EntityFieldQuery();
+    $query->entityCondition('entity_type', 'ckeditor_comment')
+      ->propertyCondition('entity_type', $element['#entity_type'])
+      ->propertyCondition('entity_id', $entity_id)
+      ->propertyCondition('entity_vid', $entity_vid)
+      ->propertyCondition('entity_bundle', $entity_bundle)
+      ->propertyCondition('field_name', $element['#field_name'])
+      ->propertyCondition('field_summary', 0);
+    $result = $query->execute();
     $attributes = array(
       'data-comments-enabled' => 'true',
       'data-entity-type' => $element['#entity_type'],
@@ -199,14 +255,7 @@ function _ckeditor_comment_process_text_format(&$element, &$form_state) {
       'data-entity-bundle' => $entity_bundle,
       'data-field-name' => $element['#field_name'],
       'data-field-summary' => '0',
-      'data-cids' => drupal_json_encode(array_keys(ckeditor_comment_load_multiple(array(), array(
-        'entity_type' => $element['#entity_type'],
-        'entity_id' => $entity_id,
-        'entity_vid' => $entity_vid,
-        'entity_bundle' => $entity_bundle,
-        'field_name' => $element['#field_name'],
-        'field_summary' => '0',
-      )))),
+      'data-cids' => drupal_json_encode(!empty($result['ckeditor_comment']) ? array_keys($result['ckeditor_comment']) : array()),
     );
     if ($field['type'] === 'text_long' || $field['type'] === 'text_with_summary') {
       // Value.
@@ -217,14 +266,16 @@ function _ckeditor_comment_process_text_format(&$element, &$form_state) {
       // Summary.
       if ($field['type'] === 'text_with_summary' && !empty($element['summary'])) {
         $attributes['data-field-summary'] = '1';
-        $attributes['data-cids'] = drupal_json_encode(array_keys(ckeditor_comment_load_multiple(array(), array(
-          'entity_type' => $element['#entity_type'],
-          'entity_id' => $entity_id,
-          'entity_vid' => $entity_vid,
-          'entity_bundle' => $entity_bundle,
-          'field_name' => $element['#field_name'],
-          'field_summary' => '1',
-        ))));
+        $query = new EntityFieldQuery();
+        $query->entityCondition('entity_type', 'ckeditor_comment')
+          ->propertyCondition('entity_type', $element['#entity_type'])
+          ->propertyCondition('entity_id', $entity_id)
+          ->propertyCondition('entity_vid', $entity_vid)
+          ->propertyCondition('entity_bundle', $entity_bundle)
+          ->propertyCondition('field_name', $element['#field_name'])
+          ->propertyCondition('field_summary', 0);
+        $result = $query->execute();
+        $attributes['data-cids'] = drupal_json_encode(!empty($result['ckeditor_comment']) ? array_keys($result['ckeditor_comment']) : array());
         if (!isset($element['summary']['#attributes'])) {
           $element['summary']['#attributes'] = array();
         }
