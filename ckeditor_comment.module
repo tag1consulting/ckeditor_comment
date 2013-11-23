@@ -87,22 +87,6 @@ function ckeditor_comment_menu() {
 }
 
 /**
- * Implements hook_library().
- */
-function ckeditor_comment_library() {
-  // Library One.
-  $libraries['jquery.nearest'] = array(
-    'title' => 'jQuery Nearest Element',
-    'website' => 'http://gilmoreorless.github.io/jquery-nearest/',
-    'version' => '1.2.1',
-    'js' => array(
-      drupal_get_path('module', 'ckeditor_comment') . '/libraries/jquery.nearest/jquery.nearest.js' => array(),
-    ),
-  );
-  return $libraries;
-}
-
-/**
  * AJAX callback for processing CKEditor inline comment actions.
  */
 function ckeditor_comment_ajax_callback() {
@@ -119,7 +103,7 @@ function ckeditor_comment_ajax_callback() {
           // @todo figure out how we do different bundles here.
           'type' => 'default',
           'uid' => $GLOBALS['user']->uid,
-          'bookmarks' => array(),
+          'character_range' => '',
           'changed' => REQUEST_TIME,
           'entity_type' => $_POST['entityType'],
           'entity_bundle' => $_POST['entityBundle'],
@@ -153,12 +137,17 @@ function ckeditor_comment_ajax_callback() {
         if (!isset($comment->cid)) {
           $comment->created = $comment->changed;
         }
+        // Ensure the created value isn't saved if it already exists.
+        elseif (!empty($comment->cid) && !empty($comment->created)) {
+          unset($comment->created);
+        }
         $wrapper->save();
         $json['comments'][] = ckeditor_comment_build_comment($comment);
       }
       break;
 
     case 'comment_load':
+      $json['template'] = render(drupal_get_form('ckeditor_comment_template_form'));
       $json['comments'] = array();
       $cids = array();
       $_comments = isset($_POST['comments']) ? $_POST['comments'] : array();
@@ -180,6 +169,17 @@ function ckeditor_comment_ajax_callback() {
   }
   drupal_json_output($json);
   drupal_exit();
+}
+
+/**
+ * Form.
+ */
+function ckeditor_comment_template_form($form, $form_state, $entity = NULL) {
+  if (!$entity) {
+    $entity = new CKEditorComment(array('type' => 'default'));
+  }
+  field_attach_form('ckeditor_comment', $entity, $form, $form_state);
+  return $form;
 }
 
 /**
@@ -224,6 +224,37 @@ function ckeditor_comment_element_info_alter(&$info) {
   $info['text_format']['#process'][] = '_ckeditor_comment_process_text_format';
 }
 
+function ckeditor_comment_get_rangy_path() {
+  $path = libraries_get_path('rangy');
+  $file = $path . '/rangy-core.js';
+  if (!file_exists($file)) {
+    drupal_set_message(t('CKEditor Comment requires the !rangy library installed in "sites/*/libraries/rangy".', array(
+      '!rangy' => l(t('Rangy 1.3+'), 'https://code.google.com/p/rangy/'),
+    )), 'error', FALSE);
+  }
+  else {
+    if (!($version = ckeditor_comment_get_rangy_version($file)) || !version_compare($version, '1.3', '>=')) {
+      drupal_set_message(t('CKEditor Comment requires a minimum version of !rangy. Installed version: %version at %path', array(
+        '!rangy' => l(t('Rangy 1.3+'), 'https://code.google.com/p/rangy/'),
+        '%path' => $file,
+        '%version' => ($version ? $version : 'Unknown'),
+      )), 'error', FALSE);
+    }
+    else {
+      return $path;
+    }
+  }
+}
+
+function ckeditor_comment_get_rangy_version($path) {
+  $pattern = '/Version: ([^\r\n]*)/i';
+  preg_match($pattern, file_get_contents($path, NULL, NULL, NULL, 500), $matches);
+  if (!empty($matches[1])) {
+    return preg_replace('/[^0-9\-\.]/', '', $matches[1]);
+  }
+  return FALSE;
+}
+
 /**
  * Process callback for text_format elements.
  */
@@ -235,7 +266,22 @@ function _ckeditor_comment_process_text_format(&$element, &$form_state) {
     && !empty($element['#language'])
     && !empty($form_state['field'][$element['#field_name']][$element['#language']]['instance']['settings']['ckeditor_comment'])
   ) {
-    drupal_add_library('ckeditor_comment', 'jquery.nearest');
+    if ($timeago = libraries_get_path('timeago')) {
+      drupal_add_js($timeago . '/jquery.timeago.js');
+    }
+    if ($json2 = libraries_get_path('json2')) {
+      drupal_add_js($json2 . '/json2.js');
+    }
+    else {
+      drupal_set_message(t('CKEditor Comment requires the !json2 library installed in "sites/*/libraries/json2".', array(
+        '!json2' => l(t('JSON2'), 'https://github.com/douglascrockford/JSON-js'),
+      )), 'error', FALSE);
+    }
+    if ($rangy = ckeditor_comment_get_rangy_path()) {
+      drupal_add_js($rangy . '/rangy-core.js');
+      drupal_add_js($rangy . '/rangy-serializer.js');
+      drupal_add_js($rangy . '/rangy-textrange.js');
+    }
     $field = $form_state['field'][$element['#field_name']][$element['#language']]['field'];
     list($entity_id, $entity_vid, $entity_bundle) = entity_extract_ids($element['#entity_type'], $element['#entity']);
     $query = new EntityFieldQuery();
@@ -382,6 +428,40 @@ function ckeditor_comment_image_default_styles() {
     ),
   );
   return $styles;
+}
+
+
+/**
+ * Implements hook_filter_info().
+ */
+function ckeditor_comment_filter_info() {
+  $filters['ckeditor_comment'] = array(
+    'title' => t('Clean CKEditor comments'),
+    'description' => _ckeditor_comment_filter_tips(NULL, NULL),
+    'process callback' => '_ckeditor_comment_filter_process',
+    'tips callback' => '_ckeditor_comment_filter_tips',
+  );
+  return $filters;
+}
+
+/**
+ * CKEditor Comment filter process callback.
+ */
+function _ckeditor_comment_filter_process($text, $filter) {
+  $pattern = '/<comment[^\/>]*>([^<]*)<\/comment>/i';
+  return preg_replace($pattern, '$1', $text);
+}
+
+/**
+ * Filter tips callback for CKEditor Comment filter.
+ */
+function _ckeditor_comment_filter_tips($filter, $format, $long = FALSE) {
+  if ($long) {
+    return t('Unwraps the contents of CKEditor comment tags by removing them before saving the field value. NOTE: This does not remove the actual comments. CKEditor comments are always dynamically loaded and added in the CKEditor instance via JavaScript.');
+  }
+  else {
+    return t('Unwraps the contents of CKEditor comment tags.');
+  }
 }
 
 //** CKEditorComment entity functions. **//

@@ -92,8 +92,8 @@ function ckeditor_comment_schema() {
         'not null' => TRUE,
         'default' => 0,
       ),
-      'bookmarks' => array(
-        'description' => 'The serialized array of CKEditor bookmarks to position the comment.',
+      'character_range' => array(
+        'description' => 'The serialized JSON object containing the character range of the CKEditor comment in the body.',
         'type' => 'text',
         'not null' => TRUE,
         'size' => 'normal',

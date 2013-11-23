@@ -1,3 +1,14 @@
+@-webkit-keyframes blink {
+    0% { opacity:1; }
+   50% { opacity:0.5; }
+  100% { opacity:1; }
+}
+@-moz-keyframes blink {
+  0% { opacity:1; }
+  50% { opacity:0.5; }
+  100% { opacity:1; }
+}
+
 *, *:after, *:before {
   -moz-box-sizing: border-box;
   -webkit-box-sizing: border-box;
@@ -11,6 +22,15 @@ html {
   min-width: 800px;
   @media (min-width: 800px) {
     padding: 10px;
+  }
+}
+.clearfix() {
+  &:before, &:after {
+    display: table;
+    content: " ";
+  }
+  &:after {
+    clear: both;
   }
 }
 
@@ -39,11 +59,28 @@ comments {
   bottom: 10px;
   font-family: Arial, sans-serif, sans;
   font-size: 13px;
+  left: 100%;
   position: absolute;
   top: 10px;
   width: 230px;
   &, comment {
     display: inline-block;
+  }
+  > .loading {
+    -moz-animation: blink 2s ease-in-out 0s infinite alternate;
+    -webkit-animation: blink 2s ease-in-out 0s infinite alternate;
+    animation: blink 2s ease-in-out 0s infinite alternate;
+    background: #fcfac6;
+    border: 1px solid #ffe572;
+    bottom: 10px;
+    box-shadow: 0 0 5px rgba(0,0,0,.10);
+    color: #B68F3E;
+    font-size: 11px;
+    line-height: 1em;
+    padding: 5px;
+    position: fixed;
+    right: 10px;
+    text-transform: uppercase;
   }
   // Single comment.
   comment {
@@ -98,6 +135,7 @@ comments {
       }
     }
     header {
+      .clearfix();
       img {
         float: left;
         height: auto;

@@ -4,6 +4,7 @@ core = 7.x
 package = CKEditor
 
 dependencies[] = ckeditor
+dependencies[] = libraries
 dependencies[] = entity
 dependencies[] = views
 

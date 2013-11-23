@@ -1,0 +1,30 @@
+{
+  "name": "ckeditor_comment",
+  "title": "CKEditor Comment",
+  "version": "1.0.3330",
+  "description": "A CKEditor plugin that adds inline commenting",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/tag1consulting/ckeditor_comments.git"
+  },
+  "author": {
+    "name": "Mark Carver",
+    "url": "https://drupal.org/user/501638"
+  },
+  "license": "GPL-2",
+  "homepage": "https://github.com/tag1consulting/ckeditor_comments",
+  "bugs": {
+    "url": "https://github.com/tag1consulting/ckeditor_comments/issues"
+  },
+  "devDependencies": {
+    "grunt": "~0.4.1",
+    "grunt-contrib-concat": "~0.3.0",
+    "grunt-contrib-uglify": "~0.2.7",
+    "grunt-contrib-jshint": "~0.7.2",
+    "grunt-contrib-watch": "~0.5.3",
+    "grunt-release": "~0.6.0",
+    "grunt-contrib-less": "~0.8.2",
+    "clean-css": "~2.0.2",
+    "grunt-jsduck": "~1.0.0"
+  }
+}

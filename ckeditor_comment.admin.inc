@@ -139,11 +139,11 @@ function ckeditor_comment_form($form, &$form_state, $comment) {
     '#value' => $comment->pid,
   );
 
-  $form['bookmarks'] = array(
+  $form['character_range'] = array(
     '#type' => 'textfield',
     '#required' => TRUE,
-    '#title' => t('Bookmarks'),
-    '#default_value' => $comment->bookmarks,
+    '#title' => t('Character range'),
+    '#default_value' => $comment->character_range,
   );
 
   $form['resolved'] = array(

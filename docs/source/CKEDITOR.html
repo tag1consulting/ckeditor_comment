@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='global-property-comments'>/**
+</span> * Create new DOM elements: COMMENTS and COMMENT.
+ */
+CKEDITOR.dtd.comments = 1;
+CKEDITOR.dtd.comment = 1;
+
+<span id='global-property-S-nonEditable'>/**
+</span> * Ensure the COMMENTS element is not editable.
+ */
+var $nonEditable = CKEDITOR.dtd.$nonEditable || {};
+$nonEditable.comments = 1;
+CKEDITOR.dtd.$nonEditable = $nonEditable;
+
+<span id='global-property-S-nonBodyContent'>/**
+</span> * Allow the COMMENTS element to live outside of BODY.
+ */
+var $nonBodyContent = CKEDITOR.dtd.$nonBodyContent || {};
+$nonBodyContent.comments = 1;
+CKEDITOR.dtd.$nonBodyContent = $nonBodyContent;
+
+<span id='global-property-S-inline'>/**
+</span> * Allow the COMMENT element to be treated as inline.
+ */
+var $inline = CKEDITOR.dtd.$inline || {};
+$inline.comment = 1;
+CKEDITOR.dtd.$inline = $inline;
+
+<span id='global-property-S-editable'>/**
+</span> * Allow the COMMENT element to be treated as editable.
+ */
+var $editable = CKEDITOR.dtd.$editable || {};
+$editable.comment = 1;
+CKEDITOR.dtd.$editable = $editable;
+
+<span id='global-property-'>/**
+</span> * Creates the &quot;comments&quot; plugin for CKEditor.
+ */
+CKEDITOR.plugins.add(&#39;comments&#39;, {
+<span id='global-method-init'>  /**
+</span>   * Initialization method.
+   * @param {CKEDITOR.editor} editor
+   */
+  init : function (editor) {
+    var plugin = this;
+    editor.comments = new CKEDITOR.Comments(editor);
+    if (editor.comments.enabled) {
+      // Add comment button.
+      editor.ui.addButton(&#39;comment&#39;, {
+        label: &#39;Comment&#39;,
+        icon: plugin.path + &#39;images/comment.png&#39;,
+        command: &#39;comment_add&#39;
+      });
+      // Add command.
+      editor.addCommand(&#39;comment_add&#39;, {
+        canUndo: false, // No support for undo/redo
+        modes: {
+          wysiwyg: 1 // Command is available in wysiwyg mode only.
+        },
+        exec: function () {
+          editor.comments.createComment();
+        }
+      });
+      // Initiate plugin when editor instance is ready.
+      editor.on(&#39;instanceReady&#39;, function (e) {
+        var editor = e.editor;
+        // Only initiate comments plugin on editors that have the plugin enabled.
+        if (editor.comments.enabled) {
+          var addStyles = function () {
+            // Append styles.
+            $(&#39;&lt;link/&gt;&#39;).attr({
+              type: &#39;text/css&#39;,
+              rel: &#39;stylesheet&#39;,
+              href: plugin.path + &#39;css/comments.css&#39;,
+              media: &#39;screen&#39;
+            })
+              .on(&#39;load&#39;, function () {
+                editor.comments.sidebarResize();
+              })
+              .appendTo($(editor.document.$).find(&#39;head&#39;));
+          };
+          addStyles();
+          // Initiate comments plugin on editor.
+          editor.comments.init();
+          // Detect editor mode switches.
+          editor.on(&#39;mode&#39;, function () {
+            // Switched to &quot;wysiwyg&quot; mode.
+            if (editor.mode === &#39;wysiwyg&#39;) {
+              addStyles();
+              // Initiate comments plugin on editor again.
+              editor.comments.init();
+            }
+            // If switching to source, instantiate a new instance of comments
+            // so it can be re-initialized if switched back to &#39;wysiwyg&#39; mode.
+            else if (editor.mode === &#39;source&#39;) {
+              editor.comments = new CKEDITOR.Comments(e.editor);
+            }
+          });
+        }
+      });
+      // Remove comments that haven&#39;t been saved before returning editor data.
+      editor.on(&#39;getData&#39;, function (e) {
+        var $data = $(&#39;&lt;div/&gt;&#39;).html(e.data.dataValue);
+        var comments = $data.find(&#39;comment&#39;).removeAttr(&#39;style&#39;).removeAttr(&#39;class&#39;).toArray();
+        for (var i = 0; i &lt; comments.length; i++) {
+          if (comments[i]._ &amp;&amp; comments[i]._ instanceof CKEDITOR.Comment &amp;&amp; !comments[i]._.cid) {
+            comments[i]._.remove();
+          }
+        }
+        e.data.dataValue = $data.html();
+      });
+    }
+  }
+});
+</pre>
+</body>
+</html>
