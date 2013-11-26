@@ -474,7 +474,7 @@
       var selection = rangy.getSelection(this.editor.document.$);
       var _cke_ranges = this.editor.getSelection().getRanges();
       this.editor.getSelection().lock();
-      selection.selectAlllChildren(this.inlineElement.get(0));
+      selection.selectAllChildren(this.inlineElement.get(0));
       var newCharacterRange = selection.saveCharacterRanges();
       if (JSON.stringify(newCharacterRange) !== JSON.stringify(this.character_range)) {
         //        window.console.log('"' + selection.toString() + '": new character range');

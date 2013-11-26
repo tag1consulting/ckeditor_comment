@@ -67,15 +67,20 @@ CKEDITOR.plugins.add(&#39;comments&#39;, {
    * @param editor The CKEDITOR.editor instance.
    */
   init : function (editor) {
-    var plugin = this;
-    window.CKEDITOR_COMMENTS_PLUGIN_PATH = plugin.path;
+    window.CKEDITOR_COMMENTS_PLUGIN_PATH = this.path;
     // Initiate plugin when editor instance is ready.
-    editor.on(&#39;instanceReady&#39;, function () {
-      if (!editor.Comments) {
-        editor.Comments = new CKEDITOR.Comments(editor);
+    editor.Comments = new CKEDITOR.Comments(editor);
+    if (editor.Comments.enabled) {
+      // Add comment button.
+      editor.ui.addButton(&#39;comment&#39;, {
+        label: &#39;Comment&#39;,
+        icon: window.CKEDITOR_COMMENTS_PLUGIN_PATH + &#39;comment.png&#39;,
+        command: &#39;comment_add&#39;
+      });
+      editor.on(&#39;instanceReady&#39;, function () {
         editor.Comments.init();
-      }
-    });
+      });
+    }
   }
 });
 
@@ -85,7 +90,8 @@ CKEDITOR.plugins.add(&#39;comments&#39;, {
 </span></span>   * This is the API entry point. The entire CKEditor.Comments code runs under this object.
    *
    * @singleton
-   * @requires CKEDITOR.CommentEvents
+   * @requires CKEDITOR.Comment
+   * @requires CKEDITOR.CommentSidebar
    * @constructor
    *   Creates a new CKEDITOR.Comments() instance for editor.
    *
@@ -178,13 +184,6 @@ CKEDITOR.plugins.add(&#39;comments&#39;, {
         })
         .appendTo($(this.editor.document.$).find(&#39;head&#39;));
 
-      // Add comment button.
-      this.editor.ui.addButton(&#39;comment&#39;, {
-        label: &#39;Comment&#39;,
-        icon: window.CKEDITOR_COMMENTS_PLUGIN_PATH + &#39;comment.png&#39;,
-        command: &#39;comment_add&#39;
-      });
-
       // Add command for comment_add button.
       this.editor.addCommand(&#39;comment_add&#39;, {
         canUndo: false, // No support for undo/redo
@@ -192,7 +191,7 @@ CKEDITOR.plugins.add(&#39;comments&#39;, {
           wysiwyg: 1 // Command is available in wysiwyg mode only.
         },
         exec: function () {
-          self.createComment();
+          self.createComment({}, true);
         }
       });
 
@@ -381,52 +380,76 @@ CKEDITOR.plugins.add(&#39;comments&#39;, {
       }
     },
 
+<span id='CKEDITOR-Comments-method-isolate'>    /**
+</span>     * Isolates code execution from changing the current selection position of
+     * the editor.
+     * @param {Function} fn
+     */
+    isolate: function (fn) {
+      fn = fn || function () {};
+      if (typeof fn !== &#39;function&#39;) {
+        return;
+      }
+      var readOnly = this.editor.readOnly;
+      if (readOnly) {
+        this.editor.setReadOnly(false);
+      }
+      var selection = rangy.getSelection(this.editor.document.$);
+      var characterRanges = selection.saveCharacterRanges();
+      fn(selection);
+      // Restoring the selection needs a very small timeout. It doesn&#39;t always
+      // restore the previous selection correctly if a comment was inserted.
+      setTimeout(function() {
+        selection.restoreCharacterRanges(this.editor.document.$, characterRanges);
+      }, 4);
+      if (readOnly) {
+        this.editor.setReadOnly(true);
+      }
+    },
+
 <span id='CKEDITOR-Comments-method-createComment'>    /**
 </span>     * Create a new comment (CKEDITOR.Comment) for the editor.
      *
      * @param {object} [options={}]
-     * @param {boolean} [activate=true]
+     * @param {boolean} [activate=false]
      */
     createComment: function(options, activate) {
       var self = this;
-
       options = options || {};
-      activate = activate || true;
+      activate = activate || false;
 
-      var readOnly = self.editor.readOnly;
-      if (readOnly) {
-        self.editor.setReadOnly(false);
-      }
-      var selection = rangy.getSelection(self.editor.document.$);
-      if (options.character_range) {
-        selection.restoreCharacterRanges(self.editor.document.getBody().$, options.character_range);
-      }
-      else {
-        selection.expand(&#39;word&#39;);
-        selection.refresh();
-        options.character_range = selection.saveCharacterRanges();
-      }
-      if (!options.inlineElement || !options.inlineElement.length) {
-        var $element = $(&#39;&lt;comment/&gt;&#39;).html(selection.toHtml());
-        if (options.cid) {
-          $element.attr(&#39;data-cid&#39;, options.cid);
+      this.isolate(function (selection) {
+        if (options.character_range) {
+          selection.restoreCharacterRanges(self.editor.document.$, options.character_range);
         }
-        self.editor.insertElement(new CKEDITOR.dom.element($element.get(0)));
-        options.inlineElement = $element;
-      }
-      var comment = options;
-      if (!(comment instanceof CKEDITOR.Comments)) {
-        comment = self.subclass(CKEDITOR.Comment, [options]);
-      }
-      if (!comment.cid) {
-        comment.edit();
-      }
-      else if (activate) {
-        comment.activate();
-      }
-      if (readOnly) {
-        self.editor.setReadOnly(true);
-      }
+        else {
+          if (selection.isCollapsed) {
+            selection.expand(&#39;word&#39;);
+            selection.refresh();
+          }
+          options.character_range = selection.saveCharacterRanges();
+        }
+        if (!options.inlineElement || !options.inlineElement.length) {
+          var $element = $(&#39;&lt;comment/&gt;&#39;).html(selection.toHtml());
+          if (options.cid) {
+            $element.attr(&#39;data-cid&#39;, options.cid);
+          }
+//          selection.pasteHtml($element.get(0).outerHTML);
+          self.editor.insertElement(new CKEDITOR.dom.element($element.get(0)));
+          options.inlineElement = $element;
+        }
+        var comment = options;
+        if (!(comment instanceof CKEDITOR.Comments)) {
+          comment = self.subclass(CKEDITOR.Comment, [options]);
+        }
+        if (activate) {
+          comment.activate();
+        }
+        if (!comment.cid) {
+          comment.edit();
+        }
+      });
+
     },
 
 <span id='CKEDITOR-Comments-method-subclass'>    /**
@@ -435,13 +458,13 @@ CKEDITOR.plugins.add(&#39;comments&#39;, {
      *      var Comments = new CKEDITOR.Comments(editor);
      *      console.log(Comments.editor); // returns Comments.editor instance.
      *
-     *      var CommentEvents = new CKEDITOR.CommentEvents();
-     *      console.log(CommentEvents.editor); // returns undefined
+     *      var CommentSidebar = new CKEDITOR.CommentSidebar();
+     *      console.log(CommentSidebar.editor); // returns undefined
      *
      *      // However, if we subclass it instead, we will inherit all of Comments
      *      // properties and methods.
-     *      var CommentEvents = Comments.subclass(CKEDITOR.CommentEvents);
-     *      console.log(CommentEvents.editor); // returns Comments.editor instance.
+     *      var CommentSidebar = Comments.subclass(CKEDITOR.CommentSidebar);
+     *      console.log(CommentSidebar.editor); // returns Comments.editor instance.
      *
      * @param {Function} Func The actual class function. Do not instantiate it:
      * new Func() or Func(), just pass the full path to the function:
