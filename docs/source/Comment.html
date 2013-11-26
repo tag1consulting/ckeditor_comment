@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js">(function ($) { if (CKEDITOR &amp;&amp; CKEDITOR.Comments &amp;&amp; !CKEDITOR.Comment) {
+
+<span id='CKEDITOR-Comment-method-constructor'><span id='CKEDITOR-Comment'>  /**
+</span></span>   * Class that handles individual comments.
+   *
+   * @extends CKEDITOR.Comments
+   * @constructor Creates a new comment in the editor.
+   *
+   *     var Comments = new CKEDITOR.Comments(editor);
+   *     var comment = new Comments.Comment();
+   *
+   * @param {object} [options]
+   *   The options used to create this comment.
+   * @returns {CKEDITOR.Comment}
+   */
+  CKEDITOR.Comment = function(options) {
+
+    var self = this;
+<span id='CKEDITOR-Comment-property-_saving'>    /**
+</span>     * State determining whether the comment is currently being saved.
+     * @property {boolean} _saving
+     * @private
+     */
+    self._saving = false;
+
+<span id='CKEDITOR-Comment-property-_editing'>    /**
+</span>     * State determining whether the comment is currently being edited.
+     *
+     * @property {boolean} _editing
+     * @private
+     */
+    self._editing = false;
+
+<span id='CKEDITOR-Comment-property-_new'>    /**
+</span>     * State determining whether the comment is new (not saved in database).
+     *
+     * @property {boolean} _new
+     * @private
+     */
+    self._new = false;
+
+<span id='CKEDITOR-Comment-property-changed'>    /**
+</span>     * The UNIX timestamp of when the comment was last modified.
+     *
+     * Setting this property will automatically update the corresponding &lt;code&gt;
+     * &amp;lt;time/&amp;gt;&lt;/code&gt; element inside the CKEDITOR.Comment.sidebarElement.
+     *
+     * @property {number} [changed=0]
+     */
+    var _changed = 0;
+    self.changed = _changed;
+    Object.defineProperty(self, &#39;changed&#39;, {
+      configurable : true,
+      enumerable : true,
+      get : function () {
+        return _changed;
+      },
+      set : function (_newChanged) {
+        var _oldChanged = _changed;
+        if (typeof _newChanged !== &#39;number&#39;) {
+          _newChanged = parseInt(_newChanged, 10) || 0;
+        }
+        if (_oldChanged !== _newChanged) {
+          _changed = _newChanged;
+        }
+        var $time = self.sidebarElement.find(&#39;time&#39;);
+        if (_changed &amp;&amp; $time.length) {
+          var date = new Date(_changed * 1000);
+          if ($time.length &amp;&amp; jQuery.timeago) {
+            $time.timeago(&#39;update&#39;, date);
+          }
+          else {
+            $time.html(date.toLocaleDateString());
+          }
+        }
+        else {
+          $time.html(&#39;&#39;);
+        }
+      }
+    });
+
+<span id='CKEDITOR-Comment-property-character_range'>    /**
+</span>     * The position of the inline comment.
+     *
+     * @property {Array} character_range
+     * @uses rangy.saveCharacterRanges
+     * @uses rangy.restoreCharacterRanges
+     */
+    self.character_range = [];
+
+<span id='CKEDITOR-Comment-property-cid'>    /**
+</span>     * The unique identification number of the comment.
+     *
+     * @property {number} [cid=0]
+     */
+    var _cid = 0;
+    self.cid = _cid;
+    Object.defineProperty(self, &#39;cid&#39;, {
+      configurable : true,
+      enumerable : true,
+      get : function () {
+        return _cid;
+      },
+      set : function (_newCid) {
+        var _oldCid = _cid;
+        if (typeof _newCid !== &#39;number&#39;) {
+          _newCid = parseInt(_newCid, 10) || 0;
+        }
+        // Only set cid if it differs from the original cid.
+        if (_oldCid !== _newCid) {
+          _cid = _newCid;
+          if (self.inlineElement instanceof jQuery &amp;&amp; self.inlineElement.length) {
+            // Update the inlineElement&#39;s data-cid value.
+            self.inlineElement.attr(&#39;data-cid&#39;, _cid);
+            // Save a reference to this comment in the comments instance.
+            if (_cid) {
+              self.comments[_cid] = self;
+            }
+            // Remove the old reference to this comment in the comments instance.
+            if (_oldCid &amp;&amp; self.comments[_oldCid]) {
+              delete self.comments[_oldCid];
+            }
+          }
+        }
+      }
+    });
+
+<span id='CKEDITOR-Comment-property-content'>    /**
+</span>     * The display content of the comment.
+     *
+     * @property {string} content
+     */
+    self.content = &#39;&#39;;
+
+<span id='CKEDITOR-Comment-property-inlineElement'>    /**
+</span>     * The jQuery Object of the comment located inside the editor BODY (content).
+     *
+     * @property {jQuery} [inlineElement=$()]
+     */
+    var _inlineElement = $();
+    self.inlineElement = _inlineElement;
+    Object.defineProperty(self, &#39;inlineElement&#39;, {
+      configurable : true,
+      enumerable : true,
+      get : function () {
+        return _inlineElement;
+      },
+      set : function (_newInlineElement) {
+        var _oldInlineElement = _inlineElement;
+        if (_oldInlineElement !== _newInlineElement &amp;&amp; _newInlineElement instanceof jQuery &amp;&amp; _newInlineElement.length) {
+          _newInlineElement.get(0)._ = self;
+        }
+        else {
+          _newInlineElement = $();
+        }
+        _inlineElement = _newInlineElement;
+        if (_inlineElement.length) {
+          self.sidebarElement = $(&#39;&lt;comment&gt;&lt;div class=&quot;color&quot;&gt;&lt;/div&gt;&lt;header&gt;&lt;/header&gt;&lt;section&gt;&lt;/section&gt;&lt;footer&gt;&lt;/footer&gt;&lt;/comment&gt;&#39;)
+            .addClass(&#39;cke-comment&#39;)
+            .attr(&#39;data-widget-wrapper&#39;, &#39;true&#39;)
+            .css(&#39;top&#39;, self.findTop() + &#39;px&#39;)
+            .on(&#39;click&#39;, function () {
+              self.activate();
+            })
+            .appendTo(self.sidebar.container);
+          self.sidebar.sort();
+          self.assignUser();
+          self.arrangeComments();
+        }
+      }
+    });
+
+<span id='CKEDITOR-Comment-property-name'>    /**
+</span>     * Name
+     *
+     * @property {(string|boolean)} name
+     */
+    self.name = false;
+
+<span id='CKEDITOR-Comment-property-picture'>    /**
+</span>     * Picture
+     * @property {(string|boolean)} picture
+     */
+    self.picture = false;
+
+<span id='CKEDITOR-Comment-property-sidebarElement'>    /**
+</span>     * The jQuery Object of the comment located inside CKEDITOR.sidebar.
+     *
+     * @property {jQuery} [sidebarElement=$()]
+     */
+    var _sidebarElement = $();
+    self.sidebarElement = _sidebarElement;
+    Object.defineProperty(self, &#39;sidebarElement&#39;, {
+      configurable : true,
+      enumerable : true,
+      get : function () {
+        return _sidebarElement;
+      },
+      set : function (value) {
+        if (value instanceof jQuery &amp;&amp; value.length) {
+          value.get(0)._ = self;
+          value.find(&#39;section&#39;).html(self.content);
+        }
+        else {
+          value = $();
+        }
+        _sidebarElement = value;
+      }
+    });
+
+<span id='CKEDITOR-Comment-property-uid'>    /**
+</span>     * The unique identification number of the user whom created the comment.
+     *
+     * @property {number} uid
+     */
+    self.uid = 0;
+
+    // Only extend comment with options that matter.
+    options = options || {};
+    for (var i in options) {
+      if (options.hasOwnProperty(i) &amp;&amp; self.hasOwnProperty(i)) {
+        self[i] = options[i];
+      }
+    }
+    return self;
+  };
+  CKEDITOR.Comment.prototype = {
+<span id='CKEDITOR-Comment-method-remove'>    /**
+</span>     * Remove comment.
+     *
+     * This method will remove both the CKEDITOR.Comment.sidebarElement and the
+     * CKEDITOR.Comment.inlineElement jQuery object DOM elements from the editor.
+     *
+     * This method also invokes CKEDITOR.Comments.arrangeComments() afterwards.
+     */
+    remove: function () {
+      var self = this;
+      if (self.inlineElement.length) {
+        self.inlineElement.contents().unwrap();
+      }
+      if (self.sidebarElement.length) {
+        self.sidebarElement.remove();
+      }
+      self.arrangeComments();
+    },
+
+<span id='CKEDITOR-Comment-method-edit'>    /**
+</span>     * Edit comment.
+     */
+    edit: function () {
+      var self = this;
+      if (!self._editing) {
+        self.edit = true;
+        var $section = self.sidebarElement.find(&#39;section&#39;);
+        self.content = $section.html();
+        var $textarea = $(&#39;&lt;textarea/&gt;&#39;).val(self.content);
+        $section.html($textarea);
+        $textarea.focus();
+        $(&#39;&lt;button/&gt;&#39;)
+          .text(&#39;Save&#39;)
+          .addClass(&#39;primary&#39;)
+          .appendTo($section)
+          .bind(&#39;click&#39;, function () {
+            self.content = $textarea.val();
+            self.save(function () {
+              $section.html(self.content);
+              self._editing = false;
+              self.arrangeComments();
+            });
+          });
+        $(&#39;&lt;button/&gt;&#39;)
+          .text(&#39;Cancel&#39;)
+          .appendTo($section)
+          .bind(&#39;click&#39;, function () {
+            self._editing = false;
+            if (!self.cid) {
+              self.remove();
+            }
+            else {
+              $section.html(self.content);
+              self.arrangeComments();
+            }
+          });
+        self.arrangeComments(self);
+      }
+    },
+
+<span id='CKEDITOR-Comment-method-assignUser'>    /**
+</span>     * Assign user (creates sidebar element header information).
+     */
+    assignUser: function() {
+      var self = this;
+      function rand(min, max) {
+        return parseInt(Math.random() * (max-min+1), 10) + min;
+      }
+      function random_color() {
+        var h = rand(0, 360);
+        var s = rand(20, 80);
+        var l = rand(50, 70);
+        return &#39;hsl(&#39; + h + &#39;,&#39; + s + &#39;%,&#39; + l + &#39;%)&#39;;
+      }
+      if (!self.uid) {
+        self.uid = Drupal.settings.ckeditor_comment.currentUser.uid;
+        self.name = Drupal.settings.ckeditor_comment.currentUser.name;
+        self.picture = Drupal.settings.ckeditor_comment.currentUser.picture;
+      }
+      if (!self.users[self.uid]) {
+        self.users[self.uid] = {
+          uid: self.uid,
+          name: self.name,
+          picture: self.picture
+        };
+      }
+      var user = self.users[self.uid];
+      if (!user.color) {
+        user.color = random_color();
+      }
+
+      // Assign the user color.
+      self.inlineElement.css(&#39;borderColor&#39;, user.color);
+      self.sidebarElement.find(&#39;.color&#39;).css(&#39;backgroundColor&#39;, user.color);
+
+      // Create header with picture, name and timestamp.
+      var $header = self.sidebarElement.find(&#39;header&#39;);
+      $header.append(user.picture);
+      $(&#39;&lt;span/&gt;&#39;).attr(&#39;rel&#39;, &#39;author&#39;).addClass(&#39;name&#39;).html(user.name).appendTo($header);
+
+      // Last changed time.
+      var $time = $(&#39;&lt;time/&gt;&#39;).appendTo($header);
+      if (self.changed) {
+        var date = new Date(self.changed * 1000);
+        $time.attr(&#39;datetime&#39;, date.toISOString()).html(date.toLocaleString());
+        if ($.timeago) {
+          $time.timeago();
+        }
+      }
+    },
+
+<span id='CKEDITOR-Comment-method-deactive'>    /**
+</span>     * Deactivate comment.
+     *
+     * This method removes the &lt;code&gt;.active&lt;/code&gt; class from both
+     * CKEDITOR.Comment.inlineElement and CKEDITOR.Comment.sidebarElement.
+     */
+    deactive: function() {
+      var self = this;
+      if (self.activeComment === self) {
+        self.activeComment = false;
+      }
+      if (!self.cid &amp;&amp; !self._saving) {
+        self.remove();
+      }
+      else {
+        self.inlineElement.removeClass(&#39;active&#39;);
+        self.sidebarElement.removeClass(&#39;active&#39;);
+      }
+    },
+
+<span id='CKEDITOR-Comment-method-activate'>    /**
+</span>     * Activate comment.
+     *
+     * This method adds the &lt;code&gt;.active&lt;/code&gt; class to both
+     * CKEDITOR.Comment.inlineElement and CKEDITOR.Comment.sidebarElement.
+     *
+     * This method also invokes CKEDITOR.Comments.arrangeComments() afterwards.
+     */
+    activate: function() {
+      var self = this;
+      // Blur the currently focused comment.
+      if (self.activeComment &amp;&amp; self.activeComment !== self) {
+        self.activeComment.deactive();
+      }
+      // Set this comment as the currently focused comment.
+      self.activeComment = self;
+
+      // Focus this comment.
+      self.inlineElement.addClass(&#39;active&#39;);
+      self.sidebarElement.addClass(&#39;active&#39;);
+
+      // Re-arrange touching comments.
+      self.arrangeComments();
+    },
+
+<span id='CKEDITOR-Comment-method-findTop'>    /**
+</span>     * Determines the current top position of CKEDITOR.Comment.inlineElement.
+     * @returns {number}
+     */
+    findTop: function() {
+      var self = this;
+      if (self.inlineElement.length) {
+        return self.inlineElement.position().top - (self.inlineElement.outerHeight(false) / 2);
+      }
+      return 0;
+    },
+
+<span id='CKEDITOR-Comment-method-resolve'>    /**
+</span>     * Resolve comment.
+     * @todo Add functionality to this method
+     */
+    resolve: function() {},
+
+<span id='CKEDITOR-Comment-method-save'>    /**
+</span>     * Save comment.
+     * @param {Function} [callback]
+     * @todo Allow dynamic field values to be saved.
+     */
+    save: function(callback) {
+      var self = this;
+      callback = callback || function () {};
+      self._saving = true;
+      self.ajax(&#39;comment_save&#39;, {
+        data: {
+          comments: [{
+            cid: self.cid,
+            character_range: self.character_range,
+            ckeditor_comment_body: self.content
+          }]
+        },
+        success: function (json) {
+          self.cid = json.comments[0].cid;
+          self.name = json.comments[0].name;
+          self.picture = json.comments[0].picture;
+          self.uid = json.comments[0].uid;
+          self.content = json.comments[0].content;
+          self._saving = false;
+          callback(json);
+        }
+      });
+    },
+
+<span id='CKEDITOR-Comment-method-set'>    /**
+</span>     * Set a property on the comment.
+     *
+     * If the &lt;code&gt;property&lt;/code&gt; argument is of type: &lt;code&gt;string&lt;/code&gt;, the
+     * &lt;code&gt;value&lt;/code&gt; argument is required.
+     *
+     * If the &lt;code&gt;property&lt;/code&gt; argument is of type: &lt;code&gt;object&lt;/code&gt;, the
+     * &lt;code&gt;value&lt;/code&gt; argument is ignored. The object must instead contain
+     * &lt;code&gt;property: value&lt;/code&gt; pairs.
+     *
+     * &lt;code&gt;property&lt;/code&gt; must already exist in the CKEDITOR.Comment object.
+     * Arbitrary properties cannot be set via this method.
+     *
+     *     comment.set(&#39;cid&#39;, 1234);
+     *
+     * or
+     *
+     *     comment.set({
+     *       cid: 1234,
+     *       content: &#39;Comment&#39;
+     *     });
+     *
+     * @param {(string|object)} property
+     * @param {*} [value]
+     */
+    set: function(property, value) {
+      var self = this;
+      if (typeof property === &#39;string&#39; &amp;&amp; typeof self[property] !== &#39;undefined&#39; &amp;&amp; typeof value !== &#39;undefined&#39;) {
+        self[property] = value;
+      }
+      else if (typeof property === &#39;object&#39;) {
+        for (var prop in property) {
+          if (typeof self[prop] !== &#39;undefined&#39;) {
+            self[prop] = property[prop];
+          }
+        }
+      }
+    },
+
+<span id='CKEDITOR-Comment-method-updateCharacterRange'>    /**
+</span>     * Update an element&#39;s character range, saving if necessary.
+     */
+    updateCharacterRange: function () {
+      var selection = rangy.getSelection(this.editor.document.$);
+      var _cke_ranges = this.editor.getSelection().getRanges();
+      this.editor.getSelection().lock();
+      selection.selectAlllChildren(this.inlineElement.get(0));
+      var newCharacterRange = selection.saveCharacterRanges();
+      if (JSON.stringify(newCharacterRange) !== JSON.stringify(this.character_range)) {
+        //        window.console.log(&#39;&quot;&#39; + selection.toString() + &#39;&quot;: new character range&#39;);
+        this.character_range = newCharacterRange;
+      }
+      else {
+        //        window.console.log(&#39;&quot;&#39; + selection.toString() + &#39;&quot;: same character range&#39;);
+      }
+      this.editor.getSelection().selectRanges(_cke_ranges);
+      this.editor.getSelection().unlock();
+    }
+  };
+
+}})(jQuery);
+</pre>
+</body>
+</html>

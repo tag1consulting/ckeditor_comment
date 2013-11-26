@@ -21,19 +21,14 @@ module.exports = function(grunt) {
           block: true,
           line: true
         },
-        banner: '<%= banner %>' + grunt.util.linefeed +
-          '(function ($) {' + grunt.util.linefeed +
-          '  "use strict";' + grunt.util.linefeed + grunt.util.linefeed,
-        footer: grunt.util.linefeed + '})(jQuery);' + grunt.util.linefeed,
-        process: function (src) {
-          src = grunt.util.normalizelf(src);
-          return src.split(grunt.util.linefeed).map(function (line) {
-            return '  ' + line;
-          }).join(grunt.util.linefeed);
-        }
+        banner: '<%= banner %>' + grunt.util.linefeed
       },
       dist: {
-        src: ['plugin/modules/*.js'],
+        src: [
+          'src/Comments.js',
+          'src/CommentSidebar.js',
+          'src/Comment.js'
+        ],
         dest: 'plugin/plugin.js'
       }
     },
@@ -73,7 +68,7 @@ module.exports = function(grunt) {
         src: 'Gruntfile.js'
       },
       modules: {
-        src: 'plugin/modules/*.js'
+        src: 'src/**/*.js'
       }
     },
     less: {
@@ -81,13 +76,13 @@ module.exports = function(grunt) {
         cleancss: true
       },
       files: {
-        src: 'plugin/less/**/*.less',
-        dest: 'plugin/css/comments.css'
+        src: 'src/**/*.less',
+        dest: 'plugin/plugin.css'
       }
     },
     watch: {
       less: {
-        files: ['plugin/less/**/*.less'],
+        files: ['src/**/*.less'],
         tasks: ['less']
       },
       gruntfile: {
@@ -113,7 +108,7 @@ module.exports = function(grunt) {
       main: {
         // source paths with your code
         src: [
-          'plugin/modules/**/*.js'
+          'src/**/*.js'
         ],
         // docs output dir
         dest: 'docs',

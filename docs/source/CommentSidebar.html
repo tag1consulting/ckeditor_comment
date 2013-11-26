@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js">(function ($) { if (CKEDITOR &amp;&amp; CKEDITOR.Comments &amp;&amp; !CKEDITOR.CommentSidebar) {
+
+<span id='CKEDITOR-CommentSidebar-method-constructor'><span id='CKEDITOR-CommentSidebar'>  /**
+</span></span>   * This class manages the sidebar for CKEDITOR.Comments. This class should
+   * not be used directly. It is automatically instantiated when a
+   * CKEDITOR.Comments instance is created.
+   *
+   *      var Comments = new CKEDITOR.Comments(editor);
+   *      console.log(Comments.sidebar)
+   *      // returns CKEDITOR.CommentSidebar
+   *
+   * @extends CKEDITOR.Comments
+   * @alias CKEDITOR.Comments._sidebar
+   * @constructor
+   *   Initializes an instance of this class. This class shouldn&#39;t be
+   *   instantiated directly, but rather called with CKEDITOR.Comments.subclass.
+   *
+   * @returns {CKEDITOR.CommentSidebar}
+   */
+  CKEDITOR.CommentSidebar = function() {
+    this.container = $();
+    return this;
+  };
+
+  CKEDITOR.CommentSidebar.prototype = {
+<span id='CKEDITOR-CommentSidebar-method-createContainer'>    /**
+</span>     * Create the sidebar container in the editor.
+     */
+    createContainer: function () {
+      if (this.container.length) {
+        return;
+      }
+      this.container = $(&#39;&lt;comments/&gt;&#39;).addClass(&#39;cke-comments-sidebar&#39;).attr(&#39;data-widget-wrapper&#39;, &#39;true&#39;).appendTo($(this.editor.document.$).find(&#39;html&#39;));
+      var self = this;
+      $(self.editor.document.getWindow().$).on(&#39;resize.cke-comments-sidebar&#39;, function () {
+        window.console.log(&#39;window resize&#39;);
+        self.containerResize();
+      });
+    },
+
+<span id='CKEDITOR-CommentSidebar-event-containerResize'>    /**
+</span>     * Re-positions the comment sidebar on resize events.
+     * @event
+     */
+    containerResize: function () {
+      var $document = $(this.editor.document.$);
+      var $body = $document.find(&#39;body&#39;);
+      this.container.css(&#39;left&#39;, (($document.find(&#39;html&#39;).width() - $body.outerWidth(false)) / 2) + $body.outerWidth(false) + 20) ;
+    },
+
+<span id='CKEDITOR-CommentSidebar-method-sort'>    /**
+</span>     * Sort comments in sidebar.
+     */
+    sort: function () {
+      var i, $inlineComments = $(this.editor.document.$).find(&#39;body comment&#39;);
+      for (i = 0; i &lt; $inlineComments.length; i++) {
+        if ($inlineComments[i]._ &amp;&amp; $inlineComments[i]._.sidebarElement.get(0)) {
+          $inlineComments[i]._.sidebarElement.get(0).commentIndex = i;
+          $inlineComments[i]._.updateCharacterRange();
+        }
+      }
+      var $sidebarComments = this.container.find(&#39;&gt; comment&#39;);
+      if ($sidebarComments.length) {
+        // Sort based on inline comment positions in editor.
+        $sidebarComments.sort(function(a, b) {
+          if (a.commentIndex &gt; b.commentIndex) {
+            return 1;
+          }
+          else if (a.commentIndex &lt; b.commentIndex) {
+            return -1;
+          }
+          else {
+            return 0;
+          }
+        });
+        this.container.append($sidebarComments);
+      }
+    }
+
+  };
+
+}})(jQuery);
+</pre>
+</body>
+</html>

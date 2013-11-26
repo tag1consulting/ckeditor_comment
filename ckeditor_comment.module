@@ -345,7 +345,7 @@ function ckeditor_comment_ckeditor_plugin() {
       'path' => drupal_get_path('module', 'ckeditor_comment') . '/plugin/',
       'buttons' => array(
         'comment' => array(
-          'icon' => 'images/comment.png',
+          'icon' => 'comment.png',
           'label' => t('Comment'),
         ),
       ),

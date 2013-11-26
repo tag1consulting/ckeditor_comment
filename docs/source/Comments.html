@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js">// Check if native implementation available
+if (typeof Object.create !== &#39;function&#39;) {
+  Object.create = function (o) {
+    function F() {}  // empty constructor
+    F.prototype = o; // set base object as prototype
+    return new F();  // return empty object with right [[Prototype]]
+  };
+}
+
+<span id='global-property-comments'>/**
+</span> * Create new DOM elements: COMMENTS and COMMENT.
+ */
+CKEDITOR.dtd.comments = 1;
+CKEDITOR.dtd.comment = 1;
+
+<span id='global-property-S-nonEditable'>/**
+</span> * Ensure the COMMENTS element is not editable.
+ */
+var $nonEditable = CKEDITOR.dtd.$nonEditable || {};
+$nonEditable.comments = 1;
+CKEDITOR.dtd.$nonEditable = $nonEditable;
+
+<span id='global-property-S-nonBodyContent'>/**
+</span> * Allow the COMMENTS element to live outside of BODY.
+ */
+var $nonBodyContent = CKEDITOR.dtd.$nonBodyContent || {};
+$nonBodyContent.comments = 1;
+CKEDITOR.dtd.$nonBodyContent = $nonBodyContent;
+
+<span id='global-property-S-inline'>/**
+</span> * Allow the COMMENT element to be treated as inline.
+ */
+var $inline = CKEDITOR.dtd.$inline || {};
+$inline.comment = 1;
+CKEDITOR.dtd.$inline = $inline;
+
+<span id='global-property-S-editable'>/**
+</span> * Allow the COMMENT element to be treated as editable.
+ */
+var $editable = CKEDITOR.dtd.$editable || {};
+$editable.comment = 1;
+CKEDITOR.dtd.$editable = $editable;
+
+<span id='global-property-'>/**
+</span> * Creates the &quot;comments&quot; plugin for CKEditor.
+ */
+CKEDITOR.plugins.add(&#39;comments&#39;, {
+<span id='global-method-init'>  /**
+</span>   * Initialization method.
+   * @param editor The CKEDITOR.editor instance.
+   */
+  init : function (editor) {
+    var plugin = this;
+    window.CKEDITOR_COMMENTS_PLUGIN_PATH = plugin.path;
+    // Initiate plugin when editor instance is ready.
+    editor.on(&#39;instanceReady&#39;, function () {
+      if (!editor.Comments) {
+        editor.Comments = new CKEDITOR.Comments(editor);
+        editor.Comments.init();
+      }
+    });
+  }
+});
+
+(function ($) { if (CKEDITOR &amp;&amp; !CKEDITOR.Comments) {
+
+<span id='CKEDITOR-Comments-method-constructor'><span id='CKEDITOR-Comments'>  /**
+</span></span>   * This is the API entry point. The entire CKEditor.Comments code runs under this object.
+   *
+   * @singleton
+   * @requires CKEDITOR.CommentEvents
+   * @constructor
+   *   Creates a new CKEDITOR.Comments() instance for editor.
+   *
+   *     var Comments = new CKEDITOR.Comments(editor);
+   *
+   * @param {CKEDITOR.editor} editor
+   * @returns {CKEDITOR.Comments} Comments
+   */
+  CKEDITOR.Comments = function(editor) {
+    this._initialized = false;
+<span id='CKEDITOR-Comments-property-comments'>    /**
+</span>     * Contains the comment IDs (cids) of initialized comments.
+     * @property {object} [comments={}]
+     */
+    this.comments = {};
+<span id='CKEDITOR-Comments-property-tempCid'>    /**
+</span>     * A temporary CID value used to unsaved comments (should always be &lt;= 0).
+     * @property {object} tempCid
+     */
+    this.tempCid = 0;
+<span id='CKEDITOR-Comments-property-editor'>    /**
+</span>     * The CKEDITOR.editor instance used in construction.
+     * @property {CKEDITOR.editor} editor={}]
+     */
+    this.editor = editor || {};
+<span id='CKEDITOR-Comments-property-data'>    /**
+</span>     * Data set properties of the editor&#39;s textarea element.
+     * @property {object} [data={}]
+     */
+    this.data = this.editor.name ? $.extend(true, {commentsEnabled: false}, $(&#39;#&#39; + this.editor.name).data()) : {};
+<span id='CKEDITOR-Comments-property-enabled'>    /**
+</span>     * Status on whether commenting is enabled.
+     * @property {boolean} [enabled=false]
+     */
+    this.enabled = this.data.commentsEnabled || false;
+<span id='CKEDITOR-Comments-property-activeComment'>    /**
+</span>     * The current comment activated (focused).
+     * @property {(boolean|CKEDITOR.Comment)} activeComment
+     */
+    this.activeComment = false;
+<span id='CKEDITOR-Comments-property-loaded'>    /**
+</span>     * Property determining whether instance has loaded.
+     * @property {boolean} loaded
+     */
+    this.loaded = false;
+<span id='CKEDITOR-Comments-property-removeQueue'>    /**
+</span>     * Queue containing the comment IDs (cids) of comments needed to be removed.
+     * @property {array} removeQueue
+     */
+    this.removeQueue = [];
+<span id='CKEDITOR-Comments-property-saveQueue'>    /**
+</span>     * Queue containing the comment IDs (cids) of comments needed to be saved.
+     * @property {array} saveQueue
+     */
+    this.saveQueue = [];
+<span id='CKEDITOR-Comments-property-users'>    /**
+</span>     * An object used to cache the users of comments.
+     * @property {Object} users
+     */
+    this.users = {};
+    return this;
+  };
+
+  CKEDITOR.Comments.prototype = {
+    init: function () {
+      if (!this.enabled || this._initialized) {
+        return;
+      }
+      this._initialized = true;
+
+      var self = this;
+
+<span id='CKEDITOR-Comments-property-sidebar'>      /**
+</span>       * An instance of the CommentSidebar class.
+       * @property {CKEDITOR.CommentSidebar} sidebar
+       * @private
+       */
+      this.sidebar = this.subclass(CKEDITOR.CommentSidebar);
+      this.sidebar.createContainer();
+
+      // Add plugin stylesheet.
+      $(&#39;&lt;link/&gt;&#39;).attr({
+        type: &#39;text/css&#39;,
+        rel: &#39;stylesheet&#39;,
+        href: window.CKEDITOR_COMMENTS_PLUGIN_PATH + &#39;plugin.css&#39;,
+        media: &#39;screen&#39;
+      })
+        .on(&#39;load&#39;, function () {
+          self.sidebar.containerResize();
+        })
+        .appendTo($(this.editor.document.$).find(&#39;head&#39;));
+
+      // Add comment button.
+      this.editor.ui.addButton(&#39;comment&#39;, {
+        label: &#39;Comment&#39;,
+        icon: window.CKEDITOR_COMMENTS_PLUGIN_PATH + &#39;comment.png&#39;,
+        command: &#39;comment_add&#39;
+      });
+
+      // Add command for comment_add button.
+      this.editor.addCommand(&#39;comment_add&#39;, {
+        canUndo: false, // No support for undo/redo
+        modes: {
+          wysiwyg: 1 // Command is available in wysiwyg mode only.
+        },
+        exec: function () {
+          self.createComment();
+        }
+      });
+
+      // Detect editor mode switches.
+      this.editor.on(&#39;mode&#39;, function (e) {
+        var editor = e.editor;
+        // Switched to &quot;wysiwyg&quot; mode.
+        if (editor.mode === &#39;wysiwyg&#39; &amp;&amp; !editor.Comments) {
+          // Initiate comments plugin on editor again.
+          editor.Comments = new CKEDITOR.Comments(editor);
+          editor.Comments.init();
+        }
+        // If switching to source, instantiate a new instance of comments
+        // so it can be re-initialized if switched back to &#39;wysiwyg&#39; mode.
+        else if (editor.mode === &#39;source&#39; &amp;&amp; editor.Comments &amp;&amp; editor.Comments instanceof CKEDITOR.Comments) {
+          delete editor.Comments;
+        }
+      });
+
+      // Remove comments that haven&#39;t been saved before returning editor data.
+      this.editor.on(&#39;getData&#39;, function (e) {
+        var $data = $(&#39;&lt;div/&gt;&#39;).html(e.data.dataValue);
+        var comments = $data.find(&#39;comment&#39;).removeAttr(&#39;style&#39;).removeAttr(&#39;class&#39;).toArray();
+        for (var i = 0; i &lt; comments.length; i++) {
+          if (comments[i]._ &amp;&amp; comments[i]._ instanceof CKEDITOR.Comments &amp;&amp; !comments[i]._.cid) {
+            comments[i]._.remove();
+          }
+        }
+        e.data.dataValue = $data.html();
+      });
+
+      var selectionChange = function (evt) {
+        evt.editor.removeListener(&#39;selectionChange&#39;);
+        self.sidebar.sort();
+        evt.editor.on(&#39;selectionChange&#39;, selectionChange);
+        var range = evt.data.selection.getRanges()[0];
+        if (range.collapsed) {
+          var parent = range.startContainer.getParent().$;
+          if (parent.nodeName === &quot;COMMENT&quot;) {
+            parent._.activate();
+          }
+          else if (self.activeComment) {
+            self.activeComment.deactive();
+          }
+        }
+        else if (self.activeComment) {
+          self.activeComment.deactive();
+        }
+      };
+      this.editor.on(&#39;selectionChange&#39;, selectionChange);
+      this.loadComments();
+    },
+
+<span id='CKEDITOR-Comments-method-ajax'>    /**
+</span>     * AJAX callback for retrieving data using default parameters.
+     *
+     * @param {string} action
+     * @param {Object} options
+     */
+    ajax: function (action, options) {
+      options = options || {};
+      var defaults = {
+        url: Drupal.settings.basePath + &#39;ajax/ckeditor/comment&#39;,
+        type: &#39;POST&#39;,
+        dataType: &#39;json&#39;,
+        data: this.data
+      };
+      options = $.extend(true, defaults, options);
+      options.data.action = action;
+      $.ajax(options);
+    },
+
+<span id='CKEDITOR-Comments-method-loadComments'>    /**
+</span>     * Load existing comments for this instance.
+     */
+    loadComments: function() {
+      var self = this;
+
+      // Only load comments once per instance.
+      if (self.loaded) {
+        return;
+      }
+
+      // Lock editor while loading comments.
+      self.editor.setReadOnly(true);
+
+      var $loading = $(&#39;&lt;div class=&quot;loading&quot;&gt;Please wait...&lt;/div&gt;&#39;);
+      self.sidebar.container.append($loading);
+
+      // Instantiate existing comments.
+      $(self.editor.document.$).find(&#39;body comment&#39;).each(function () {
+        var $inlineElement = $(this);
+        var options = $.extend(true, { inlineElement: $inlineElement }, $inlineElement.data());
+        var comment = self.subclass(CKEDITOR.Comment, [options]);
+        if (!comment.cid) {
+          comment.remove();
+        }
+      });
+
+      // Load comments from database.
+      self.ajax(&#39;comment_load&#39;, {
+        data: {
+          comments: self.data.cids
+        },
+        success: function (json) {
+          self.template = json.template;
+          for (var i = 0; i &lt; json.comments.length; i++) {
+            var comment = self.subclass(CKEDITOR.Comment, [json.comments[i]]);
+            if (comment.cid &amp;&amp; !self.comments[comment.cid]) {
+              self.createComment(comment);
+            }
+          }
+        },
+        complete: function () {
+          $loading.remove();
+          self.editor.setReadOnly(false);
+        }
+      });
+      self.loaded = true;
+    },
+
+<span id='CKEDITOR-Comments-method-closestComment'>    /**
+</span>     * Find closest comments based on editor cursor position.
+     */
+    closestComment: function() {
+      var self = this,
+        selection = self.editor.getSelection(),
+        startElement = selection.getStartElement(),
+        comment = $();
+      if (startElement) {
+        comment = $(startElement.$).closest(&#39;comment&#39;);
+        // Try finding first child comment.
+        if (!comment.length) {
+          comment = $(startElement.$).find(&#39;comment:first&#39;);
+        }
+        // Try finding first parent child comment.
+        if (!comment.length) {
+          comment = $(startElement.$).parent().find(&#39;comment:first&#39;);
+        }
+      }
+      // Try finding first comment in entire editor.
+      if (!startElement || !comment.length) {
+        comment = $(self.editor.document.$).find(&#39;comment:first&#39;);
+      }
+      if (comment.length &amp;&amp; comment.get(0)._ &amp;&amp; comment.get(0)._ instanceof CKEDITOR.Comments) {
+        return comment.get(0)._;
+      }
+      return false;
+    },
+
+<span id='CKEDITOR-Comments-method-arrangeComments'>    /**
+</span>     * Arrange comments around the comment this was called on.
+     * @param {CKEDITOR.Comment} [comment]
+     */
+    arrangeComments: function(comment) {
+      var self = this;
+      comment = comment || self.activeComment || self.closestComment();
+      if (comment &amp;&amp; comment.sidebarElement.length) {
+        var beforeTop, beforeComment, commentsBefore = comment.sidebarElement.prevAll(&#39;comment&#39;).toArray();
+        var afterTop, afterComment, commentsAfter = comment.sidebarElement.nextAll(&#39;comment&#39;).toArray();
+        beforeTop = afterTop = comment.sidebarElement.get(0).newTop = comment.findTop();
+
+        self.sidebar.container.find(&#39;&gt; comment&#39;).stop(true);
+
+        var animateSidebarComment = function() {
+          this._.sidebarElement.animate({top: this.newTop + &#39;px&#39;});
+          delete this.newTop;
+        };
+
+        comment.sidebarElement.queue(&#39;arrangeComments&#39;, animateSidebarComment);
+        while (commentsBefore.length || commentsAfter.length) {
+          if (commentsBefore.length) {
+            beforeComment = commentsBefore.splice(0,1)[0];
+            beforeTop -= $(beforeComment).outerHeight(false) + 10;
+            beforeComment.newTop = beforeTop;
+            $(beforeComment).queue(&#39;arrangeComments&#39;, animateSidebarComment);
+          }
+          if (commentsAfter.length) {
+            afterComment = commentsAfter.splice(0,1)[0];
+            afterTop += $(afterComment).outerHeight(false) + 10;
+            afterComment.newTop = afterTop;
+            $(afterComment).queue(&#39;arrangeComments&#39;, animateSidebarComment);
+          }
+        }
+        self.sidebar.container.find(&#39;&gt; comment&#39;).dequeue(&#39;arrangeComments&#39;);
+      }
+    },
+
+<span id='CKEDITOR-Comments-method-createComment'>    /**
+</span>     * Create a new comment (CKEDITOR.Comment) for the editor.
+     *
+     * @param {object} [options={}]
+     * @param {boolean} [activate=true]
+     */
+    createComment: function(options, activate) {
+      var self = this;
+
+      options = options || {};
+      activate = activate || true;
+
+      var readOnly = self.editor.readOnly;
+      if (readOnly) {
+        self.editor.setReadOnly(false);
+      }
+      var selection = rangy.getSelection(self.editor.document.$);
+      if (options.character_range) {
+        selection.restoreCharacterRanges(self.editor.document.getBody().$, options.character_range);
+      }
+      else {
+        selection.expand(&#39;word&#39;);
+        selection.refresh();
+        options.character_range = selection.saveCharacterRanges();
+      }
+      if (!options.inlineElement || !options.inlineElement.length) {
+        var $element = $(&#39;&lt;comment/&gt;&#39;).html(selection.toHtml());
+        if (options.cid) {
+          $element.attr(&#39;data-cid&#39;, options.cid);
+        }
+        self.editor.insertElement(new CKEDITOR.dom.element($element.get(0)));
+        options.inlineElement = $element;
+      }
+      var comment = options;
+      if (!(comment instanceof CKEDITOR.Comments)) {
+        comment = self.subclass(CKEDITOR.Comment, [options]);
+      }
+      if (!comment.cid) {
+        comment.edit();
+      }
+      else if (activate) {
+        comment.activate();
+      }
+      if (readOnly) {
+        self.editor.setReadOnly(true);
+      }
+    },
+
+<span id='CKEDITOR-Comments-method-subclass'>    /**
+</span>     * Create a subclass of the object this is being called on.
+     *
+     *      var Comments = new CKEDITOR.Comments(editor);
+     *      console.log(Comments.editor); // returns Comments.editor instance.
+     *
+     *      var CommentEvents = new CKEDITOR.CommentEvents();
+     *      console.log(CommentEvents.editor); // returns undefined
+     *
+     *      // However, if we subclass it instead, we will inherit all of Comments
+     *      // properties and methods.
+     *      var CommentEvents = Comments.subclass(CKEDITOR.CommentEvents);
+     *      console.log(CommentEvents.editor); // returns Comments.editor instance.
+     *
+     * @param {Function} Func The actual class function. Do not instantiate it:
+     * new Func() or Func(), just pass the full path to the function:
+     * CKEDITOR.CommentSidebar.
+     * @param {Array} [args=[]] An array of arguments to pass to the function.
+     */
+    subclass: function (Func, args) {
+      // Default arguments.
+      args = args || [];
+      // Save the original prototype of the function so we don&#39;t destroy it.
+      var OriginalPrototype = Func.prototype || {},
+          Parent = this,
+          ParentPrototype = {},
+          prop;
+      // Extend Parent properties with getter/setters.
+      for (prop in Parent) {
+        // Extend getter/setters for Parent if the function doesn&#39;t have them.
+        if (!Func.hasOwnProperty(prop) &amp;&amp; typeof Parent[prop] !== &#39;function&#39;) {
+          /*jshint ignore:start*/
+          (function () {
+            var name = prop;
+            Object.defineProperty(ParentPrototype, prop, {
+              configurable : true,
+              enumerable : true,
+              get : function () {
+                return Parent[name];
+              },
+              set : function (value) {
+                Parent[name] = value;
+              }
+            });
+          })();
+          /*jshint ignore:end*/
+        }
+        else {
+          ParentPrototype[prop] = Parent[prop];
+        }
+      }
+      // Save the newly constructed parent prototype.
+      Func.prototype = ParentPrototype;
+      // Restore the original prototypes of the function.
+      for (prop in OriginalPrototype) {
+        Func.prototype[prop] = OriginalPrototype[prop];
+      }
+      // Instantiate the new subclass.
+      var SubClass = Func.apply(new Func(), args);
+      // Restore the function&#39;s original prototype.
+      Func.prototype = OriginalPrototype;
+      // Return the subclass.
+      return SubClass;
+    }
+
+  };
+
+}})(jQuery);
+</pre>
+</body>
+</html>
