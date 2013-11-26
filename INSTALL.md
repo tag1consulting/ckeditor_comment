@@ -16,15 +16,10 @@
 
 ###Development Requirements
 If you plan on developing this module, it requires [Grunt](http://gruntjs.com) - The JavaScript Task Runner.
-
-Navigate into the root of this project and run:
-`npm install`
-
-After the development node modules have been installed, you can run:
-`grunt watch`
-
-This will watch for any changes made in the `./src` folder and automatically compile them into the appropriate `./plugin` file.
+Navigate into the root of this project and run: `npm install`
+After the development node modules have been installed, you can run: `grunt watch`
+This watches for any changes made in the `./src` folder and automatically compile them into the appropriate `./plugin` file.
 
 ###Release
-`grunt build` - Compiles all files and increments the MINOR version of the project.
-`grunt build:major` - Compiles all files and increments the MAJOR version of the project.
+* `grunt build` - Compiles all files and increments the MINOR version of the project.
+* `grunt build:major` - Compiles all files and increments the MAJOR version of the project.
