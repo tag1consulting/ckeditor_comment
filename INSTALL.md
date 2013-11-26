@@ -5,7 +5,7 @@
 * [Libraries API](https://drupal.org/project/libraries)
 * [Entity API](https://drupal.org/project/entity)
 * [Views](https://drupal.org/project/views)
-* 
+
 ###Drupal Library Requirements
 * [CKEDITOR 4+: Full Package](http://ckeditor.com/download) - Installed in `sites/all/libraries`.
 * [Rangy 1.3+](https://code.google.com/p/rangy/downloads/detail?name=rangy-1.3alpha.772.tar.gz) - Installed in `sites/all/libraries`.
