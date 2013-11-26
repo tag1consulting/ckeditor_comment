@@ -17,7 +17,18 @@
 ###Optional Library Support
 * [Timeago jQuery Plugin](http://timeago.yarp.com) - Relative times for comments
 
-###Development Requirements
+##Configuration
+To enable CKEditor comments, there is a three step process:
+
+  1. __CKEditor Profiles__: It is recommended to enable the actual plugin for all CKEditor profiles, regardless if you will use them on the profile. This can be done by visiting `admin/config/content/ckeditor`. Under your profile's `Editor appearance` section:
+    * Drag and drop the comment icon (![comment](https://raw.github.com/tag1consulting/ckeditor_comment/master/plugin/comment.png)) to the position you desire on your toolbar.
+    * Then enable the `CKEditor comments` plugin below it.
+  2. __Fields__: Both `Long text` and `Long text with summary` field types can be independantly managed to enable inline commenting. Edit the field and check `Enable inline comments in CKEditor` under the `Text processing` section.
+  3. __Filter__: A field raw value may contain comment wrappers: `<comment data-cid="1234">my commented text</comment>`. This helps ensure better comment positioning when initially loading comments. To filter these out and un-wrap the commented text from these tags for you displayed (safe) value:
+    * Go to the text format that handles this field: `admin/config/content/formats` and click edit.
+    * Enable the `Clean CKEditor comments` filter.
+
+##Development
 If you plan on developing this module, it requires [Grunt](http://gruntjs.com) - The JavaScript Task Runner.
 * Navigate into the root of this project and run: `npm install`
 * After the development node modules have been installed, you can run: `grunt watch`
