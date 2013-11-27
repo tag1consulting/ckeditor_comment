@@ -10,7 +10,7 @@
 * [Views](https://drupal.org/project/views)
 
 ###Drupal Library Requirements
-* [CKEditor 4+: Full Package](http://ckeditor.com/download) - Installed in `sites/all/libraries`.
+* [CKEditor 4.3+](http://ckeditor.com/builder) - Requires `Full Package` plus the `Widget` plugin (must add manually) installed in `sites/all/libraries`.
 * [Rangy 1.3+](https://code.google.com/p/rangy/downloads/detail?name=rangy-1.3alpha.772.tar.gz) - Installed in `sites/all/libraries`.
 * [JSON2](https://github.com/douglascrockford/JSON-js/archive/master.zip) - Installed in `sites/all/libraries`.
 
