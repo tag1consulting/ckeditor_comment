@@ -25,9 +25,8 @@ module.exports = function(grunt) {
       },
       dist: {
         src: [
-          'src/Comments.js',
-          'src/CommentSidebar.js',
-          'src/Comment.js'
+          'src/Comments.js', // Ensure the Comments class loads first.
+          'src/**/*.js'
         ],
         dest: 'plugin/plugin.js'
       }

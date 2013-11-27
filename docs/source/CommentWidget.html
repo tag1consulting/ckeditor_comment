@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js">(function ($) { if (CKEDITOR &amp;&amp; CKEDITOR.Comments &amp;&amp; !CKEDITOR.CommentWidget) {
+
+<span id='CKEDITOR-CommentWidget-method-constructor'><span id='CKEDITOR-CommentWidget'>  /**
+</span></span>   * This class manages the comment widget for CKEditor. This class should
+   * not be used directly. It is automatically instantiated when a
+   * CKEDITOR.Comments instance is created.
+   *
+   * @constructor
+   *   Initializes an instance of this class.
+   *
+   * @param {CKEDITOR.plugins.widget} widget
+   * @returns {CKEDITOR.CommentWidget}
+   */
+  CKEDITOR.CommentWidget = function(widget) {
+    var self = this;
+    self.comment = {};
+    if (!widget) {
+      return self;
+    }
+    widget.on(&#39;data&#39;,     function () { self.data(this);      });
+    widget.on(&#39;deselect&#39;, function () { self.deselect(this);  });
+    widget.on(&#39;destroy&#39;,  function () { self.destroy(this);   });
+    widget.on(&#39;ready&#39;,    function () { self.ready(this);     });
+    widget.on(&#39;select&#39;,   function () { self.select(this);    });
+    self.widget = widget;
+    return self;
+  };
+
+  CKEDITOR.CommentWidget.prototype = {
+
+<span id='CKEDITOR-CommentWidget-event-data'>    /**
+</span>     * Fired when the comment widget data has been changed.
+     * @event
+     * @param {CKEDITOR.plugins.widget} widget
+     */
+    data: function (widget) {
+      widget.element.setHtml(widget.data.content);
+    },
+
+<span id='CKEDITOR-CommentWidget-event-deselect'>    /**
+</span>     * Fired when comment widget has been deselected.
+     * @event
+     * @param {CKEDITOR.plugins.widget} widget
+     */
+    deselect: function (widget) {
+      widget.comment.deactive();
+    },
+
+<span id='CKEDITOR-CommentWidget-event-destroy'>    /**
+</span>     * Fired when comment widget is destroyed.
+     * @event
+     * @param {CKEDITOR.plugins.widget} widget
+     */
+    destroy: function (widget) {
+      this.editor.undoManager.lock();
+      widget.comment.sidebarElement.remove();
+      this.editor.insertHtml(widget.data.content);
+      this.editor.undoManager.unlock();
+    },
+
+<span id='CKEDITOR-CommentWidget-event-ready'>    /**
+</span>     * Fired when comment widget was successfully created and is ready.
+     * @event
+     * @param {CKEDITOR.plugins.widget} widget
+     */
+    ready: function (widget) {
+      widget.dialog = &#39;comment&#39;;
+      var comment = this.subclass(CKEDITOR.Comment, { inlineElement: $(widget.element.$)});
+      comment.widget = widget;
+      comment.activate();
+      if (!comment.cid) {
+        comment.edit();
+      }
+      widget.comment = comment;
+    },
+
+<span id='CKEDITOR-CommentWidget-event-select'>    /**
+</span>     * Fired when comment widget is selected.
+     * @event
+     * @param {CKEDITOR.plugins.widget} widget
+     */
+    select: function (widget) {
+      widget.comment.activate();
+    }
+
+  };
+
+}})(jQuery);
+</pre>
+</body>
+</html>

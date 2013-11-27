@@ -15,16 +15,7 @@
   </script>
 </head>
 <body onload="prettyPrint(); highlight();">
-  <pre class="prettyprint lang-js">// Check if native implementation available
-if (typeof Object.create !== &#39;function&#39;) {
-  Object.create = function (o) {
-    function F() {}  // empty constructor
-    F.prototype = o; // set base object as prototype
-    return new F();  // return empty object with right [[Prototype]]
-  };
-}
-
-<span id='global-property-comments'>/**
+  <pre class="prettyprint lang-js"><span id='global-property-comments'>/**
 </span> * Create new DOM elements: COMMENTS and COMMENT.
  */
 CKEDITOR.dtd.comments = 1;
@@ -56,6 +47,7 @@ CKEDITOR.dtd.$inline = $inline;
  */
 var $editable = CKEDITOR.dtd.$editable || {};
 $editable.comment = 1;
+$editable.span = 1;
 CKEDITOR.dtd.$editable = $editable;
 
 <span id='global-property-'>/**
@@ -75,7 +67,36 @@ CKEDITOR.plugins.add(&#39;comments&#39;, {
       editor.ui.addButton(&#39;comment&#39;, {
         label: &#39;Comment&#39;,
         icon: window.CKEDITOR_COMMENTS_PLUGIN_PATH + &#39;comment.png&#39;,
-        command: &#39;comment_add&#39;
+        command: &#39;comment&#39;
+      });
+      // Create the comment dialog for editing inline content.
+      CKEDITOR.dialog.add(&#39;comment&#39;, function() {
+        return {
+          title: &#39;Edit comment contents&#39;,
+          minWidth: 400,
+          minHeight: 50,
+          contents: [{
+            id: &#39;info&#39;,
+            elements: [{
+              id: &#39;content&#39;,
+              type: &#39;textarea&#39;,
+              width: &#39;100%&#39;,
+              rows: 10,
+              setup: function(widget) {
+                this.setValue(widget.data.content);
+              },
+              commit: function(widget) {
+                widget.setData(&#39;content&#39;, this.getValue());
+              },
+              validate: function() {
+                if (this.getValue().length &lt; 1) {
+                  window.alert(&#39;You must provide at least 1 character of valid text.&#39;);
+                  return false;
+                }
+              }
+            }]
+          }]
+        };
       });
       editor.on(&#39;instanceReady&#39;, function () {
         editor.Comments.init();
@@ -173,31 +194,52 @@ CKEDITOR.plugins.add(&#39;comments&#39;, {
       this.sidebar.createContainer();
 
       // Add plugin stylesheet.
-      $(&#39;&lt;link/&gt;&#39;).attr({
-        type: &#39;text/css&#39;,
-        rel: &#39;stylesheet&#39;,
-        href: window.CKEDITOR_COMMENTS_PLUGIN_PATH + &#39;plugin.css&#39;,
-        media: &#39;screen&#39;
-      })
+      $(&#39;&lt;link/&gt;&#39;)
+        .attr({
+          type: &#39;text/css&#39;,
+          rel: &#39;stylesheet&#39;,
+          href: window.CKEDITOR_COMMENTS_PLUGIN_PATH + &#39;plugin.css&#39;,
+          media: &#39;screen&#39;
+        })
         .on(&#39;load&#39;, function () {
           self.sidebar.containerResize();
         })
         .appendTo($(this.editor.document.$).find(&#39;head&#39;));
 
-      // Add command for comment_add button.
-      this.editor.addCommand(&#39;comment_add&#39;, {
-        canUndo: false, // No support for undo/redo
-        modes: {
-          wysiwyg: 1 // Command is available in wysiwyg mode only.
+      self.editor.widgets.add(&#39;comment&#39;, {
+        button: &#39;Create a comment&#39;,
+        defaults: function () {
+          var selection = rangy.getSelection(self.editor.document.$);
+          // Attempt to expand word if possible.
+          if (selection.isCollapsed) {
+            selection.expand(&#39;word&#39;);
+            selection.refresh();
+          }
+          return {
+            content: selection.toHtml()
+          };
         },
-        exec: function () {
-          self.createComment({}, true);
+        editables: {
+          content: {
+            selector: &#39;.cke-comment-content&#39;
+          }
+        },
+        parts: {
+          content: &#39;.cke-comment-content&#39;
+        },
+        requiredContent: &#39;comment&#39;,
+        template: &#39;&lt;comment&gt;&lt;span class=&quot;cke-comment-content&quot;&gt;{content}&lt;/span&gt;&lt;/comment&gt;&#39;,
+        init: function () {
+          self.subclass(CKEDITOR.CommentWidget, this);
+        },
+        upcast: function(element) {
+          return element.name === &#39;comment&#39;;
         }
       });
 
       // Detect editor mode switches.
-      this.editor.on(&#39;mode&#39;, function (e) {
-        var editor = e.editor;
+      this.editor.on(&#39;mode&#39;, function (evt) {
+        var editor = evt.editor;
         // Switched to &quot;wysiwyg&quot; mode.
         if (editor.mode === &#39;wysiwyg&#39; &amp;&amp; !editor.Comments) {
           // Initiate comments plugin on editor again.
@@ -211,38 +253,8 @@ CKEDITOR.plugins.add(&#39;comments&#39;, {
         }
       });
 
-      // Remove comments that haven&#39;t been saved before returning editor data.
-      this.editor.on(&#39;getData&#39;, function (e) {
-        var $data = $(&#39;&lt;div/&gt;&#39;).html(e.data.dataValue);
-        var comments = $data.find(&#39;comment&#39;).removeAttr(&#39;style&#39;).removeAttr(&#39;class&#39;).toArray();
-        for (var i = 0; i &lt; comments.length; i++) {
-          if (comments[i]._ &amp;&amp; comments[i]._ instanceof CKEDITOR.Comments &amp;&amp; !comments[i]._.cid) {
-            comments[i]._.remove();
-          }
-        }
-        e.data.dataValue = $data.html();
-      });
-
-      var selectionChange = function (evt) {
-        evt.editor.removeListener(&#39;selectionChange&#39;);
-        self.sidebar.sort();
-        evt.editor.on(&#39;selectionChange&#39;, selectionChange);
-        var range = evt.data.selection.getRanges()[0];
-        if (range.collapsed) {
-          var parent = range.startContainer.getParent().$;
-          if (parent.nodeName === &quot;COMMENT&quot;) {
-            parent._.activate();
-          }
-          else if (self.activeComment) {
-            self.activeComment.deactive();
-          }
-        }
-        else if (self.activeComment) {
-          self.activeComment.deactive();
-        }
-      };
-      this.editor.on(&#39;selectionChange&#39;, selectionChange);
-      this.loadComments();
+      // @TODO temporarily disabled comment loading until widgets work properly.
+      // this.loadComments();
     },
 
 <span id='CKEDITOR-Comments-method-ajax'>    /**
@@ -285,7 +297,7 @@ CKEDITOR.plugins.add(&#39;comments&#39;, {
       $(self.editor.document.$).find(&#39;body comment&#39;).each(function () {
         var $inlineElement = $(this);
         var options = $.extend(true, { inlineElement: $inlineElement }, $inlineElement.data());
-        var comment = self.subclass(CKEDITOR.Comment, [options]);
+        var comment = self.subclass(CKEDITOR.Comment, options);
         if (!comment.cid) {
           comment.remove();
         }
@@ -299,7 +311,7 @@ CKEDITOR.plugins.add(&#39;comments&#39;, {
         success: function (json) {
           self.template = json.template;
           for (var i = 0; i &lt; json.comments.length; i++) {
-            var comment = self.subclass(CKEDITOR.Comment, [json.comments[i]]);
+            var comment = self.subclass(CKEDITOR.Comment, json.comments[i]);
             if (comment.cid &amp;&amp; !self.comments[comment.cid]) {
               self.createComment(comment);
             }
@@ -399,8 +411,9 @@ CKEDITOR.plugins.add(&#39;comments&#39;, {
       fn(selection);
       // Restoring the selection needs a very small timeout. It doesn&#39;t always
       // restore the previous selection correctly if a comment was inserted.
+      var self = this;
       setTimeout(function() {
-        selection.restoreCharacterRanges(this.editor.document.$, characterRanges);
+        selection.restoreCharacterRanges(self.editor.document.$, characterRanges);
       }, 4);
       if (readOnly) {
         this.editor.setReadOnly(true);
@@ -440,7 +453,7 @@ CKEDITOR.plugins.add(&#39;comments&#39;, {
         }
         var comment = options;
         if (!(comment instanceof CKEDITOR.Comments)) {
-          comment = self.subclass(CKEDITOR.Comment, [options]);
+          comment = self.subclass(CKEDITOR.Comment, options);
         }
         if (activate) {
           comment.activate();
@@ -469,11 +482,10 @@ CKEDITOR.plugins.add(&#39;comments&#39;, {
      * @param {Function} Func The actual class function. Do not instantiate it:
      * new Func() or Func(), just pass the full path to the function:
      * CKEDITOR.CommentSidebar.
-     * @param {Array} [args=[]] An array of arguments to pass to the function.
      */
-    subclass: function (Func, args) {
-      // Default arguments.
-      args = args || [];
+    subclass: function (Func) {
+      // Arguments.
+      var args = Array.prototype.slice.call(arguments, 1);
       // Save the original prototype of the function so we don&#39;t destroy it.
       var OriginalPrototype = Func.prototype || {},
           Parent = this,
@@ -482,7 +494,7 @@ CKEDITOR.plugins.add(&#39;comments&#39;, {
       // Extend Parent properties with getter/setters.
       for (prop in Parent) {
         // Extend getter/setters for Parent if the function doesn&#39;t have them.
-        if (!Func.hasOwnProperty(prop) &amp;&amp; typeof Parent[prop] !== &#39;function&#39;) {
+        if (!Func.hasOwnProperty(prop) &amp;&amp; !(Parent[prop] instanceof Object)) {
           /*jshint ignore:start*/
           (function () {
             var name = prop;

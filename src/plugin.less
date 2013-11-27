@@ -54,6 +54,16 @@ body.cke_editable {
   }
 }
 
+// Remove CKEditor widget outlines.
+.cke_widget_wrapper {
+  &:hover > comment.cke_widget_element,
+  &.cke_widget_focused > comment.cke_widget_element,
+  &:hover comment .cke_widget_editable,
+  comment .cke_widget_editable.cke_widget_editable_focused {
+    outline: 0;
+  }
+}
+
 // Sidebar comments.
 comments {
   bottom: 10px;

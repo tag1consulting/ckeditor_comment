@@ -226,25 +226,6 @@
   };
   CKEDITOR.Comment.prototype = {
     /**
-     * Remove comment.
-     *
-     * This method will remove both the CKEDITOR.Comment.sidebarElement and the
-     * CKEDITOR.Comment.inlineElement jQuery object DOM elements from the editor.
-     *
-     * This method also invokes CKEDITOR.Comments.arrangeComments() afterwards.
-     */
-    remove: function () {
-      var self = this;
-      if (self.inlineElement.length) {
-        self.inlineElement.contents().unwrap();
-      }
-      if (self.sidebarElement.length) {
-        self.sidebarElement.remove();
-      }
-      self.arrangeComments();
-    },
-
-    /**
      * Edit comment.
      */
     edit: function () {
@@ -274,7 +255,7 @@
           .bind('click', function () {
             self._editing = false;
             if (!self.cid) {
-              self.remove();
+              self.widget.destroy();
             }
             else {
               $section.html(self.content);
@@ -347,13 +328,13 @@
       if (self.activeComment === self) {
         self.activeComment = false;
       }
-      if (!self.cid && !self._saving) {
-        self.remove();
-      }
-      else {
+//      if (!self.cid && !self._saving) {
+//        self.widget.destroy();
+//      }
+//      else {
         self.inlineElement.removeClass('active');
         self.sidebarElement.removeClass('active');
-      }
+//      }
     },
 
     /**
@@ -388,7 +369,7 @@
     findTop: function() {
       var self = this;
       if (self.inlineElement.length) {
-        return self.inlineElement.position().top - (self.inlineElement.outerHeight(false) / 2);
+        return self.inlineElement.offset().top - (self.inlineElement.outerHeight(false) / 2);
       }
       return 0;
     },
@@ -403,29 +384,34 @@
      * Save comment.
      * @param {Function} [callback]
      * @todo Allow dynamic field values to be saved.
+     * @todo Temporarily disabled until widgets work properly.
      */
     save: function(callback) {
-      var self = this;
-      callback = callback || function () {};
-      self._saving = true;
-      self.ajax('comment_save', {
-        data: {
-          comments: [{
-            cid: self.cid,
-            character_range: self.character_range,
-            ckeditor_comment_body: self.content
-          }]
-        },
-        success: function (json) {
-          self.cid = json.comments[0].cid;
-          self.name = json.comments[0].name;
-          self.picture = json.comments[0].picture;
-          self.uid = json.comments[0].uid;
-          self.content = json.comments[0].content;
-          self._saving = false;
-          callback(json);
-        }
-      });
+      // @todo remove.
+      if (typeof callback === 'function') {
+        callback();
+      }
+//      var self = this;
+//      callback = callback || function () {};
+//      self._saving = true;
+//      self.ajax('comment_save', {
+//        data: {
+//          comments: [{
+//            cid: self.cid,
+//            character_range: self.character_range,
+//            ckeditor_comment_body: self.content
+//          }]
+//        },
+//        success: function (json) {
+//          self.cid = json.comments[0].cid;
+//          self.name = json.comments[0].name;
+//          self.picture = json.comments[0].picture;
+//          self.uid = json.comments[0].uid;
+//          self.content = json.comments[0].content;
+//          self._saving = false;
+//          callback(json);
+//        }
+//      });
     },
 
     /**

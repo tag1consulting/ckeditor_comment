@@ -1,20 +1,12 @@
 /**
  * @file
- * CKEditor Comment - v1.0.3835
+ * CKEditor Comment - v1.0.4014
  * A plugin for supporting inline commenting in CKEditor.
  *
  * Homepage: https://github.com/tag1consulting/ckeditor_comments
  * Author: Mark Carver (https://drupal.org/user/501638)
- * Last build: 2013-11-26 2:37:41 PM CST
+ * Last build: 2013-11-27 10:19:01 AM CST
  */
-
-if (typeof Object.create !== 'function') {
-  Object.create = function (o) {
-    function F() {}  // empty constructor
-    F.prototype = o; // set base object as prototype
-    return new F();  // return empty object with right [[Prototype]]
-  };
-}
 
 /**
  * Create new DOM elements: COMMENTS and COMMENT.
@@ -48,6 +40,7 @@ CKEDITOR.dtd.$inline = $inline;
  */
 var $editable = CKEDITOR.dtd.$editable || {};
 $editable.comment = 1;
+$editable.span = 1;
 CKEDITOR.dtd.$editable = $editable;
 
 /**
@@ -67,7 +60,36 @@ CKEDITOR.plugins.add('comments', {
       editor.ui.addButton('comment', {
         label: 'Comment',
         icon: window.CKEDITOR_COMMENTS_PLUGIN_PATH + 'comment.png',
-        command: 'comment_add'
+        command: 'comment'
+      });
+      // Create the comment dialog for editing inline content.
+      CKEDITOR.dialog.add('comment', function() {
+        return {
+          title: 'Edit comment contents',
+          minWidth: 400,
+          minHeight: 50,
+          contents: [{
+            id: 'info',
+            elements: [{
+              id: 'content',
+              type: 'textarea',
+              width: '100%',
+              rows: 10,
+              setup: function(widget) {
+                this.setValue(widget.data.content);
+              },
+              commit: function(widget) {
+                widget.setData('content', this.getValue());
+              },
+              validate: function() {
+                if (this.getValue().length < 1) {
+                  window.alert('You must provide at least 1 character of valid text.');
+                  return false;
+                }
+              }
+            }]
+          }]
+        };
       });
       editor.on('instanceReady', function () {
         editor.Comments.init();
@@ -165,31 +187,52 @@ CKEDITOR.plugins.add('comments', {
       this.sidebar.createContainer();
 
       // Add plugin stylesheet.
-      $('<link/>').attr({
-        type: 'text/css',
-        rel: 'stylesheet',
-        href: window.CKEDITOR_COMMENTS_PLUGIN_PATH + 'plugin.css',
-        media: 'screen'
-      })
+      $('<link/>')
+        .attr({
+          type: 'text/css',
+          rel: 'stylesheet',
+          href: window.CKEDITOR_COMMENTS_PLUGIN_PATH + 'plugin.css',
+          media: 'screen'
+        })
         .on('load', function () {
           self.sidebar.containerResize();
         })
         .appendTo($(this.editor.document.$).find('head'));
 
-      // Add command for comment_add button.
-      this.editor.addCommand('comment_add', {
-        canUndo: false, // No support for undo/redo
-        modes: {
-          wysiwyg: 1 // Command is available in wysiwyg mode only.
+      self.editor.widgets.add('comment', {
+        button: 'Create a comment',
+        defaults: function () {
+          var selection = rangy.getSelection(self.editor.document.$);
+          // Attempt to expand word if possible.
+          if (selection.isCollapsed) {
+            selection.expand('word');
+            selection.refresh();
+          }
+          return {
+            content: selection.toHtml()
+          };
         },
-        exec: function () {
-          self.createComment({}, true);
+        editables: {
+          content: {
+            selector: '.cke-comment-content'
+          }
+        },
+        parts: {
+          content: '.cke-comment-content'
+        },
+        requiredContent: 'comment',
+        template: '<comment><span class="cke-comment-content">{content}</span></comment>',
+        init: function () {
+          self.subclass(CKEDITOR.CommentWidget, this);
+        },
+        upcast: function(element) {
+          return element.name === 'comment';
         }
       });
 
       // Detect editor mode switches.
-      this.editor.on('mode', function (e) {
-        var editor = e.editor;
+      this.editor.on('mode', function (evt) {
+        var editor = evt.editor;
         // Switched to "wysiwyg" mode.
         if (editor.mode === 'wysiwyg' && !editor.Comments) {
           // Initiate comments plugin on editor again.
@@ -203,38 +246,8 @@ CKEDITOR.plugins.add('comments', {
         }
       });
 
-      // Remove comments that haven't been saved before returning editor data.
-      this.editor.on('getData', function (e) {
-        var $data = $('<div/>').html(e.data.dataValue);
-        var comments = $data.find('comment').removeAttr('style').removeAttr('class').toArray();
-        for (var i = 0; i < comments.length; i++) {
-          if (comments[i]._ && comments[i]._ instanceof CKEDITOR.Comments && !comments[i]._.cid) {
-            comments[i]._.remove();
-          }
-        }
-        e.data.dataValue = $data.html();
-      });
-
-      var selectionChange = function (evt) {
-        evt.editor.removeListener('selectionChange');
-        self.sidebar.sort();
-        evt.editor.on('selectionChange', selectionChange);
-        var range = evt.data.selection.getRanges()[0];
-        if (range.collapsed) {
-          var parent = range.startContainer.getParent().$;
-          if (parent.nodeName === "COMMENT") {
-            parent._.activate();
-          }
-          else if (self.activeComment) {
-            self.activeComment.deactive();
-          }
-        }
-        else if (self.activeComment) {
-          self.activeComment.deactive();
-        }
-      };
-      this.editor.on('selectionChange', selectionChange);
-      this.loadComments();
+      // @TODO temporarily disabled comment loading until widgets work properly.
+      // this.loadComments();
     },
 
     /**
@@ -277,7 +290,7 @@ CKEDITOR.plugins.add('comments', {
       $(self.editor.document.$).find('body comment').each(function () {
         var $inlineElement = $(this);
         var options = $.extend(true, { inlineElement: $inlineElement }, $inlineElement.data());
-        var comment = self.subclass(CKEDITOR.Comment, [options]);
+        var comment = self.subclass(CKEDITOR.Comment, options);
         if (!comment.cid) {
           comment.remove();
         }
@@ -291,7 +304,7 @@ CKEDITOR.plugins.add('comments', {
         success: function (json) {
           self.template = json.template;
           for (var i = 0; i < json.comments.length; i++) {
-            var comment = self.subclass(CKEDITOR.Comment, [json.comments[i]]);
+            var comment = self.subclass(CKEDITOR.Comment, json.comments[i]);
             if (comment.cid && !self.comments[comment.cid]) {
               self.createComment(comment);
             }
@@ -391,8 +404,9 @@ CKEDITOR.plugins.add('comments', {
       fn(selection);
       // Restoring the selection needs a very small timeout. It doesn't always
       // restore the previous selection correctly if a comment was inserted.
+      var self = this;
       setTimeout(function() {
-        selection.restoreCharacterRanges(this.editor.document.$, characterRanges);
+        selection.restoreCharacterRanges(self.editor.document.$, characterRanges);
       }, 4);
       if (readOnly) {
         this.editor.setReadOnly(true);
@@ -432,7 +446,7 @@ CKEDITOR.plugins.add('comments', {
         }
         var comment = options;
         if (!(comment instanceof CKEDITOR.Comments)) {
-          comment = self.subclass(CKEDITOR.Comment, [options]);
+          comment = self.subclass(CKEDITOR.Comment, options);
         }
         if (activate) {
           comment.activate();
@@ -461,11 +475,10 @@ CKEDITOR.plugins.add('comments', {
      * @param {Function} Func The actual class function. Do not instantiate it:
      * new Func() or Func(), just pass the full path to the function:
      * CKEDITOR.CommentSidebar.
-     * @param {Array} [args=[]] An array of arguments to pass to the function.
      */
-    subclass: function (Func, args) {
-      // Default arguments.
-      args = args || [];
+    subclass: function (Func) {
+      // Arguments.
+      var args = Array.prototype.slice.call(arguments, 1);
       // Save the original prototype of the function so we don't destroy it.
       var OriginalPrototype = Func.prototype || {},
           Parent = this,
@@ -474,7 +487,7 @@ CKEDITOR.plugins.add('comments', {
       // Extend Parent properties with getter/setters.
       for (prop in Parent) {
         // Extend getter/setters for Parent if the function doesn't have them.
-        if (!Func.hasOwnProperty(prop) && typeof Parent[prop] !== 'function') {
+        if (!Func.hasOwnProperty(prop) && !(Parent[prop] instanceof Object)) {
           /*jshint ignore:start*/
           (function () {
             var name = prop;
@@ -507,89 +520,6 @@ CKEDITOR.plugins.add('comments', {
       Func.prototype = OriginalPrototype;
       // Return the subclass.
       return SubClass;
-    }
-
-  };
-
-}})(jQuery);
-
-(function ($) { if (CKEDITOR && CKEDITOR.Comments && !CKEDITOR.CommentSidebar) {
-
-  /**
-   * This class manages the sidebar for CKEDITOR.Comments. This class should
-   * not be used directly. It is automatically instantiated when a
-   * CKEDITOR.Comments instance is created.
-   *
-   *      var Comments = new CKEDITOR.Comments(editor);
-   *      console.log(Comments.sidebar)
-   *      // returns CKEDITOR.CommentSidebar
-   *
-   * @extends CKEDITOR.Comments
-   * @alias CKEDITOR.Comments._sidebar
-   * @constructor
-   *   Initializes an instance of this class. This class shouldn't be
-   *   instantiated directly, but rather called with CKEDITOR.Comments.subclass.
-   *
-   * @returns {CKEDITOR.CommentSidebar}
-   */
-  CKEDITOR.CommentSidebar = function() {
-    this.container = $();
-    return this;
-  };
-
-  CKEDITOR.CommentSidebar.prototype = {
-    /**
-     * Create the sidebar container in the editor.
-     */
-    createContainer: function () {
-      if (this.container.length) {
-        return;
-      }
-      this.container = $('<comments/>').addClass('cke-comments-sidebar').attr('data-widget-wrapper', 'true').appendTo($(this.editor.document.$).find('html'));
-      var self = this;
-      $(self.editor.document.getWindow().$).on('resize.cke-comments-sidebar', function () {
-        window.console.log('window resize');
-        self.containerResize();
-      });
-    },
-
-    /**
-     * Re-positions the comment sidebar on resize events.
-     * @event
-     */
-    containerResize: function () {
-      var $document = $(this.editor.document.$);
-      var $body = $document.find('body');
-      this.container.css('left', (($document.find('html').width() - $body.outerWidth(false)) / 2) + $body.outerWidth(false) + 20) ;
-    },
-
-    /**
-     * Sort comments in sidebar.
-     */
-    sort: function () {
-      var i, $inlineComments = $(this.editor.document.$).find('body comment');
-      for (i = 0; i < $inlineComments.length; i++) {
-        if ($inlineComments[i]._ && $inlineComments[i]._.sidebarElement.get(0)) {
-          $inlineComments[i]._.sidebarElement.get(0).commentIndex = i;
-          $inlineComments[i]._.updateCharacterRange();
-        }
-      }
-      var $sidebarComments = this.container.find('> comment');
-      if ($sidebarComments.length) {
-        // Sort based on inline comment positions in editor.
-        $sidebarComments.sort(function(a, b) {
-          if (a.commentIndex > b.commentIndex) {
-            return 1;
-          }
-          else if (a.commentIndex < b.commentIndex) {
-            return -1;
-          }
-          else {
-            return 0;
-          }
-        });
-        this.container.append($sidebarComments);
-      }
     }
 
   };
@@ -824,25 +754,6 @@ CKEDITOR.plugins.add('comments', {
   };
   CKEDITOR.Comment.prototype = {
     /**
-     * Remove comment.
-     *
-     * This method will remove both the CKEDITOR.Comment.sidebarElement and the
-     * CKEDITOR.Comment.inlineElement jQuery object DOM elements from the editor.
-     *
-     * This method also invokes CKEDITOR.Comments.arrangeComments() afterwards.
-     */
-    remove: function () {
-      var self = this;
-      if (self.inlineElement.length) {
-        self.inlineElement.contents().unwrap();
-      }
-      if (self.sidebarElement.length) {
-        self.sidebarElement.remove();
-      }
-      self.arrangeComments();
-    },
-
-    /**
      * Edit comment.
      */
     edit: function () {
@@ -872,7 +783,7 @@ CKEDITOR.plugins.add('comments', {
           .bind('click', function () {
             self._editing = false;
             if (!self.cid) {
-              self.remove();
+              self.widget.destroy();
             }
             else {
               $section.html(self.content);
@@ -945,13 +856,13 @@ CKEDITOR.plugins.add('comments', {
       if (self.activeComment === self) {
         self.activeComment = false;
       }
-      if (!self.cid && !self._saving) {
-        self.remove();
-      }
-      else {
+//      if (!self.cid && !self._saving) {
+//        self.widget.destroy();
+//      }
+//      else {
         self.inlineElement.removeClass('active');
         self.sidebarElement.removeClass('active');
-      }
+//      }
     },
 
     /**
@@ -986,7 +897,7 @@ CKEDITOR.plugins.add('comments', {
     findTop: function() {
       var self = this;
       if (self.inlineElement.length) {
-        return self.inlineElement.position().top - (self.inlineElement.outerHeight(false) / 2);
+        return self.inlineElement.offset().top - (self.inlineElement.outerHeight(false) / 2);
       }
       return 0;
     },
@@ -1001,29 +912,34 @@ CKEDITOR.plugins.add('comments', {
      * Save comment.
      * @param {Function} [callback]
      * @todo Allow dynamic field values to be saved.
+     * @todo Temporarily disabled until widgets work properly.
      */
     save: function(callback) {
-      var self = this;
-      callback = callback || function () {};
-      self._saving = true;
-      self.ajax('comment_save', {
-        data: {
-          comments: [{
-            cid: self.cid,
-            character_range: self.character_range,
-            ckeditor_comment_body: self.content
-          }]
-        },
-        success: function (json) {
-          self.cid = json.comments[0].cid;
-          self.name = json.comments[0].name;
-          self.picture = json.comments[0].picture;
-          self.uid = json.comments[0].uid;
-          self.content = json.comments[0].content;
-          self._saving = false;
-          callback(json);
-        }
-      });
+      // @todo remove.
+      if (typeof callback === 'function') {
+        callback();
+      }
+//      var self = this;
+//      callback = callback || function () {};
+//      self._saving = true;
+//      self.ajax('comment_save', {
+//        data: {
+//          comments: [{
+//            cid: self.cid,
+//            character_range: self.character_range,
+//            ckeditor_comment_body: self.content
+//          }]
+//        },
+//        success: function (json) {
+//          self.cid = json.comments[0].cid;
+//          self.name = json.comments[0].name;
+//          self.picture = json.comments[0].picture;
+//          self.uid = json.comments[0].uid;
+//          self.content = json.comments[0].content;
+//          self._saving = false;
+//          callback(json);
+//        }
+//      });
     },
 
     /**
@@ -1084,6 +1000,178 @@ CKEDITOR.plugins.add('comments', {
       this.editor.getSelection().selectRanges(_cke_ranges);
       this.editor.getSelection().unlock();
     }
+  };
+
+}})(jQuery);
+
+(function ($) { if (CKEDITOR && CKEDITOR.Comments && !CKEDITOR.CommentSidebar) {
+
+  /**
+   * This class manages the sidebar for CKEDITOR.Comments. This class should
+   * not be used directly. It is automatically instantiated when a
+   * CKEDITOR.Comments instance is created.
+   *
+   *      var Comments = new CKEDITOR.Comments(editor);
+   *      console.log(Comments.sidebar)
+   *      // returns CKEDITOR.CommentSidebar
+   *
+   * @extends CKEDITOR.Comments
+   * @alias CKEDITOR.Comments._sidebar
+   * @constructor
+   *   Initializes an instance of this class. This class shouldn't be
+   *   instantiated directly, but rather called with CKEDITOR.Comments.subclass.
+   *
+   * @returns {CKEDITOR.CommentSidebar}
+   */
+  CKEDITOR.CommentSidebar = function() {
+    this.container = $();
+    return this;
+  };
+
+  CKEDITOR.CommentSidebar.prototype = {
+    /**
+     * Create the sidebar container in the editor.
+     */
+    createContainer: function () {
+      if (this.container.length) {
+        return;
+      }
+      this.container = $('<comments/>').addClass('cke-comments-sidebar').attr('data-widget-wrapper', 'true').appendTo($(this.editor.document.$).find('html'));
+      var self = this;
+      $(self.editor.document.getWindow().$).on('resize.cke-comments-sidebar', function () {
+        window.console.log('window resize');
+        self.containerResize();
+      });
+    },
+
+    /**
+     * Re-positions the comment sidebar on resize events.
+     * @event
+     */
+    containerResize: function () {
+      var $document = $(this.editor.document.$);
+      var $body = $document.find('body');
+      this.container.css('left', (($document.find('html').width() - $body.outerWidth(false)) / 2) + $body.outerWidth(false) + 20) ;
+    },
+
+    /**
+     * Sort comments in sidebar.
+     */
+    sort: function () {
+      var i, $inlineComments = $(this.editor.document.$).find('body comment');
+      for (i = 0; i < $inlineComments.length; i++) {
+        if ($inlineComments[i]._ && $inlineComments[i]._.sidebarElement.get(0)) {
+          $inlineComments[i]._.sidebarElement.get(0).commentIndex = i;
+          $inlineComments[i]._.updateCharacterRange();
+        }
+      }
+      var $sidebarComments = this.container.find('> comment');
+      if ($sidebarComments.length) {
+        // Sort based on inline comment positions in editor.
+        $sidebarComments.sort(function(a, b) {
+          if (a.commentIndex > b.commentIndex) {
+            return 1;
+          }
+          else if (a.commentIndex < b.commentIndex) {
+            return -1;
+          }
+          else {
+            return 0;
+          }
+        });
+        this.container.append($sidebarComments);
+      }
+    }
+
+  };
+
+}})(jQuery);
+
+(function ($) { if (CKEDITOR && CKEDITOR.Comments && !CKEDITOR.CommentWidget) {
+
+  /**
+   * This class manages the comment widget for CKEditor. This class should
+   * not be used directly. It is automatically instantiated when a
+   * CKEDITOR.Comments instance is created.
+   *
+   * @constructor
+   *   Initializes an instance of this class.
+   *
+   * @param {CKEDITOR.plugins.widget} widget
+   * @returns {CKEDITOR.CommentWidget}
+   */
+  CKEDITOR.CommentWidget = function(widget) {
+    var self = this;
+    self.comment = {};
+    if (!widget) {
+      return self;
+    }
+    widget.on('data',     function () { self.data(this);      });
+    widget.on('deselect', function () { self.deselect(this);  });
+    widget.on('destroy',  function () { self.destroy(this);   });
+    widget.on('ready',    function () { self.ready(this);     });
+    widget.on('select',   function () { self.select(this);    });
+    self.widget = widget;
+    return self;
+  };
+
+  CKEDITOR.CommentWidget.prototype = {
+
+    /**
+     * Fired when the comment widget data has been changed.
+     * @event
+     * @param {CKEDITOR.plugins.widget} widget
+     */
+    data: function (widget) {
+      widget.element.setHtml(widget.data.content);
+    },
+
+    /**
+     * Fired when comment widget has been deselected.
+     * @event
+     * @param {CKEDITOR.plugins.widget} widget
+     */
+    deselect: function (widget) {
+      widget.comment.deactive();
+    },
+
+    /**
+     * Fired when comment widget is destroyed.
+     * @event
+     * @param {CKEDITOR.plugins.widget} widget
+     */
+    destroy: function (widget) {
+      this.editor.undoManager.lock();
+      widget.comment.sidebarElement.remove();
+      this.editor.insertHtml(widget.data.content);
+      this.editor.undoManager.unlock();
+    },
+
+    /**
+     * Fired when comment widget was successfully created and is ready.
+     * @event
+     * @param {CKEDITOR.plugins.widget} widget
+     */
+    ready: function (widget) {
+      widget.dialog = 'comment';
+      var comment = this.subclass(CKEDITOR.Comment, { inlineElement: $(widget.element.$)});
+      comment.widget = widget;
+      comment.activate();
+      if (!comment.cid) {
+        comment.edit();
+      }
+      widget.comment = comment;
+    },
+
+    /**
+     * Fired when comment widget is selected.
+     * @event
+     * @param {CKEDITOR.plugins.widget} widget
+     */
+    select: function (widget) {
+      widget.comment.activate();
+    }
+
   };
 
 }})(jQuery);
