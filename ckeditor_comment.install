@@ -19,6 +19,7 @@ function ckeditor_comment_install() {
       'field_name' => 'ckeditor_comment_body',
       'type' => 'text_long',
       'entity_types' => array('ckeditor_comment'),
+      'locked' => 1,
     );
     $field = field_create_field($field);
   }
@@ -29,7 +30,14 @@ function ckeditor_comment_install() {
       'entity_type' => 'ckeditor_comment',
       'bundle' => 'default',
       'label' => t('Body'),
+      'locked' => 1,
+      'required' => TRUE,
       'widget' => array('type' => 'text_textarea'),
+      'display' => array(
+        'default' => array(
+          'label' => 'hidden',
+        )
+      )
     );
     $instance = field_create_instance($instance);
   }
@@ -186,4 +194,18 @@ function ckeditor_comment_schema() {
   );
 
   return $schema;
+}
+
+/**
+ * Lock down the comment field and hide the label.
+ */
+function ckeditor_comment_update_7100() {
+  $field = field_info_field('ckeditor_comment_body');
+  $field['locked'] = 1;
+  field_update_field($field);
+  $instance = field_info_instance('ckeditor_comment', 'ckeditor_comment_body', 'default');
+  $instance['locked'] = 1;
+  $instance['required'] = TRUE;
+  $instance['display']['default']['label'] = 'hidden';
+  field_update_instance($instance);
 }
