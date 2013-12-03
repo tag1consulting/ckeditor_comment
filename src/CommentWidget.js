@@ -1,6 +1,52 @@
 (function ($) { if (CKEDITOR && CKEDITOR.Comments && !CKEDITOR.CommentWidget) {
 
   /**
+   * Provides the "comment" widget definition.
+   * @param {CKEDITOR.Comments} instance
+   *   The CKEDITOR.Comments instance.
+   * @returns {Object}
+   * @static
+   * @abstract
+   */
+  CKEDITOR.CommentWidgetDefinition = function (instance) {
+    return {
+      defaults: function () {
+        var selection = rangy.getSelection(instance.editor.document.$);
+        // Attempt to expand word if possible.
+        if (selection.isCollapsed) {
+          selection.expand('word');
+          selection.refresh();
+        }
+        selection.trim();
+        return {
+          content: selection.toHtml()
+        };
+      },
+      editables: {
+        content: {
+          selector: '.cke-comment-content'
+        }
+      },
+      parts: {
+        content: '.cke-comment-content'
+      },
+      requiredContent: 'comment',
+      template: '<comment><span class="cke-comment-content">{content}</span></comment>',
+      init: function () {
+        if (this.data.content.length) {
+          instance.subclass(CKEDITOR.CommentWidget, this);
+        }
+        else {
+          instance.editor.widgets.del(this);
+        }
+      },
+      upcast: function(element) {
+        return element.name === 'comment';
+      }
+    };
+  };
+
+  /**
    * This class manages the comment widget for CKEditor. This class should
    * not be used directly. It is automatically instantiated when a
    * CKEDITOR.Comments instance is created.
@@ -52,10 +98,8 @@
      * @param {CKEDITOR.plugins.widget} widget
      */
     destroy: function (widget) {
-      this.editor.undoManager.lock();
       widget.comment.sidebarElement.remove();
       this.editor.insertHtml(widget.data.content);
-      this.editor.undoManager.unlock();
     },
 
     /**

@@ -242,6 +242,14 @@
     return self;
   };
   CKEDITOR.Comment.prototype = {
+<span id='CKEDITOR-Comment-method-destroy'>    /**
+</span>     * Destroy the comment widget.
+     *
+     * Wrapper for CKEDITOR.plugins.widget.destroy.
+     */
+    destroy: function () {
+      this.editor.widgets.del(this.widget);
+    },
 <span id='CKEDITOR-Comment-method-edit'>    /**
 </span>     * Edit comment.
      */
@@ -272,7 +280,7 @@
           .bind(&#39;click&#39;, function () {
             self._editing = false;
             if (!self.cid) {
-              self.widget.destroy();
+              self.destroy();
             }
             else {
               $section.html(self.content);
@@ -346,7 +354,7 @@
         self.activeComment = false;
       }
 //      if (!self.cid &amp;&amp; !self._saving) {
-//        self.widget.destroy();
+//        self.destroy();
 //      }
 //      else {
         self.inlineElement.removeClass(&#39;active&#39;);
