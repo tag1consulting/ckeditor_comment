@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js">(function ($) { if (CKEDITOR &amp;&amp; CKEDITOR.Comments &amp;&amp; !CKEDITOR.CommentAjax) {
+
+<span id='CKEDITOR-CommentAjax-method-constructor'><span id='CKEDITOR-CommentAjax'>  /**
+</span></span>   * This class centralizes the ajax loading for ckeditor_comment.
+   *
+   * @constructor
+   *   Initializes an instance of this class.
+   *
+   * @returns {CKEDITOR.CommentAjax}
+   */
+  CKEDITOR.CommentAjax = function() {
+    /* Nothing to do yet... */
+
+    return this;
+  };
+
+  CKEDITOR.CommentAjax.prototype = {
+<span id='CKEDITOR-CommentAjax-method-ajax'>    /**
+</span>     * AJAX callback for retrieving data using default parameters.
+     *
+     * @param {string} action
+     * @param {Object} options
+     */
+    ajax: function (action, options) {
+      options = options || {};
+      var defaults = {
+        url: Drupal.settings.basePath + &#39;ajax/ckeditor/comment&#39;,
+        type: &#39;POST&#39;,
+        dataType: &#39;json&#39;,
+        data: this.data
+      };
+      options = $.extend(true, defaults, options);
+      options.data.action = action;
+      $.ajax(options);
+    },
+
+<span id='CKEDITOR-CommentAjax-method-loadComments'>    /**
+</span>     * Load existing comments for this instance.
+     */
+    loadComments: function() {
+      var self = this;
+
+      // Only load comments once per instance.
+      if (self.loaded) {
+        return;
+      }
+
+      // Lock editor while loading comments.
+      self.editor.setReadOnly(true);
+
+      var $loading = $(&#39;&lt;div class=&quot;loading&quot;&gt;Please wait...&lt;/div&gt;&#39;);
+      self.sidebar.container.append($loading);
+
+      // Instantiate existing comments.
+      $(self.editor.document.$).find(&#39;body comment&#39;).each(function () {
+        var $inlineElement = $(this);
+        var options = $.extend(true, { inlineElement: $inlineElement }, $inlineElement.data());
+        var comment = self.subclass(CKEDITOR.Comment, options);
+        if (!comment.cid) {
+          comment.remove();
+        }
+      });
+
+      // Load comments from database.
+      self.ajax(&#39;comment_load&#39;, {
+        data: {
+          comments: self.data.cids
+        },
+        success: function (json) {
+          self.template = json.template;
+          for (var i = 0; i &lt; json.comments.length; i++) {
+            var comment = self.subclass(CKEDITOR.Comment, json.comments[i]);
+            if (comment.cid &amp;&amp; !self.comments[comment.cid]) {
+              self.createComment(comment);
+            }
+          }
+        },
+        complete: function () {
+          $loading.remove();
+          self.editor.setReadOnly(false);
+        }
+      });
+      self.loaded = true;
+    }
+  };
+
+}})(jQuery);
+</pre>
+</body>
+</html>

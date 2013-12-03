@@ -1,11 +1,11 @@
 /**
  * @file
- * CKEditor Comment - v1.0.4014
+ * CKEditor Comment - v1.0.4015
  * A plugin for supporting inline commenting in CKEditor.
  *
  * Homepage: https://github.com/tag1consulting/ckeditor_comments
  * Author: Mark Carver (https://drupal.org/user/501638)
- * Last build: 2013-11-27 10:19:01 AM CST
+ * Last build: 2013-12-03 1:31:31 PM MST
  */
 
 /**
@@ -186,6 +186,13 @@ CKEDITOR.plugins.add('comments', {
       this.sidebar = this.subclass(CKEDITOR.CommentSidebar);
       this.sidebar.createContainer();
 
+      /**
+       * An instance of the CommentAjax class.
+       * @property {CKEDITOR.CommentAjax} ajax
+       * @private
+       */
+      this.ajax = this.subclass(CKEDITOR.CommentAjax);
+
       // Add plugin stylesheet.
       $('<link/>')
         .attr({
@@ -247,75 +254,7 @@ CKEDITOR.plugins.add('comments', {
       });
 
       // @TODO temporarily disabled comment loading until widgets work properly.
-      // this.loadComments();
-    },
-
-    /**
-     * AJAX callback for retrieving data using default parameters.
-     *
-     * @param {string} action
-     * @param {Object} options
-     */
-    ajax: function (action, options) {
-      options = options || {};
-      var defaults = {
-        url: Drupal.settings.basePath + 'ajax/ckeditor/comment',
-        type: 'POST',
-        dataType: 'json',
-        data: this.data
-      };
-      options = $.extend(true, defaults, options);
-      options.data.action = action;
-      $.ajax(options);
-    },
-
-    /**
-     * Load existing comments for this instance.
-     */
-    loadComments: function() {
-      var self = this;
-
-      // Only load comments once per instance.
-      if (self.loaded) {
-        return;
-      }
-
-      // Lock editor while loading comments.
-      self.editor.setReadOnly(true);
-
-      var $loading = $('<div class="loading">Please wait...</div>');
-      self.sidebar.container.append($loading);
-
-      // Instantiate existing comments.
-      $(self.editor.document.$).find('body comment').each(function () {
-        var $inlineElement = $(this);
-        var options = $.extend(true, { inlineElement: $inlineElement }, $inlineElement.data());
-        var comment = self.subclass(CKEDITOR.Comment, options);
-        if (!comment.cid) {
-          comment.remove();
-        }
-      });
-
-      // Load comments from database.
-      self.ajax('comment_load', {
-        data: {
-          comments: self.data.cids
-        },
-        success: function (json) {
-          self.template = json.template;
-          for (var i = 0; i < json.comments.length; i++) {
-            var comment = self.subclass(CKEDITOR.Comment, json.comments[i]);
-            if (comment.cid && !self.comments[comment.cid]) {
-              self.createComment(comment);
-            }
-          }
-        },
-        complete: function () {
-          $loading.remove();
-          self.editor.setReadOnly(false);
-        }
-      });
-      self.loaded = true;
+      // this.ajax.loadComments();
     },
 
     /**
@@ -999,6 +938,94 @@ CKEDITOR.plugins.add('comments', {
       }
       this.editor.getSelection().selectRanges(_cke_ranges);
       this.editor.getSelection().unlock();
+    }
+  };
+
+}})(jQuery);
+
+(function ($) { if (CKEDITOR && CKEDITOR.Comments && !CKEDITOR.CommentAjax) {
+
+  /**
+   * This class centralizes the ajax loading for ckeditor_comment.
+   *
+   * @constructor
+   *   Initializes an instance of this class.
+   *
+   * @returns {CKEDITOR.CommentAjax}
+   */
+  CKEDITOR.CommentAjax = function() {
+    /* Nothing to do yet... */
+
+    return this;
+  };
+
+  CKEDITOR.CommentAjax.prototype = {
+    /**
+     * AJAX callback for retrieving data using default parameters.
+     *
+     * @param {string} action
+     * @param {Object} options
+     */
+    ajax: function (action, options) {
+      options = options || {};
+      var defaults = {
+        url: Drupal.settings.basePath + 'ajax/ckeditor/comment',
+        type: 'POST',
+        dataType: 'json',
+        data: this.data
+      };
+      options = $.extend(true, defaults, options);
+      options.data.action = action;
+      $.ajax(options);
+    },
+
+    /**
+     * Load existing comments for this instance.
+     */
+    loadComments: function() {
+      var self = this;
+
+      // Only load comments once per instance.
+      if (self.loaded) {
+        return;
+      }
+
+      // Lock editor while loading comments.
+      self.editor.setReadOnly(true);
+
+      var $loading = $('<div class="loading">Please wait...</div>');
+      self.sidebar.container.append($loading);
+
+      // Instantiate existing comments.
+      $(self.editor.document.$).find('body comment').each(function () {
+        var $inlineElement = $(this);
+        var options = $.extend(true, { inlineElement: $inlineElement }, $inlineElement.data());
+        var comment = self.subclass(CKEDITOR.Comment, options);
+        if (!comment.cid) {
+          comment.remove();
+        }
+      });
+
+      // Load comments from database.
+      self.ajax('comment_load', {
+        data: {
+          comments: self.data.cids
+        },
+        success: function (json) {
+          self.template = json.template;
+          for (var i = 0; i < json.comments.length; i++) {
+            var comment = self.subclass(CKEDITOR.Comment, json.comments[i]);
+            if (comment.cid && !self.comments[comment.cid]) {
+              self.createComment(comment);
+            }
+          }
+        },
+        complete: function () {
+          $loading.remove();
+          self.editor.setReadOnly(false);
+        }
+      });
+      self.loaded = true;
     }
   };
 
