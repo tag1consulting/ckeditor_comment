@@ -46,12 +46,54 @@ CKEDITOR.plugins.add('comments', {
     // Initiate plugin when editor instance is ready.
     editor.Comments = new CKEDITOR.Comments(editor);
     if (editor.Comments.enabled) {
+      // Add the comment widget.
+      editor.widgets.add('comment', CKEDITOR.CommentWidgetDefinition(editor));
+
+      // Add command for comment_add button.
+      editor.addCommand('comment_add', {
+        modes: {
+          wysiwyg: 1 // Command is available in wysiwyg mode only.
+        },
+        exec: function () {
+          var selection = rangy.getSelection(editor.document.$);
+          // Attempt to expand word if possible.
+          if (selection.isCollapsed) {
+            selection.expand('word');
+            selection.refresh();
+          }
+          selection.trim();
+          var html = selection.toHtml();
+          if (!html.length) {
+            return;
+          }
+          var element = new CKEDITOR.dom.element('comment');
+          element.setHtml(html);
+          editor.insertElement(element);
+          var widget = editor.widgets.initOn(element, 'comment', {
+            content: html
+          });
+          if (!widget.comment) {
+            var comment = editor.Comments.subclass(CKEDITOR.Comment, { inlineElement: element });
+            comment.widget = widget;
+            widget.comment = comment;
+          }
+          if (editor.widgets.focused && editor.widgets.focused !== widget) {
+            editor.widgets.focused.setFocused(false).setSelected(false);
+          }
+          widget.focus();
+          if (widget.comment.cid === 0) {
+            widget.comment.edit();
+          }
+        }
+      });
+
       // Add comment button.
       editor.ui.addButton('comment', {
         label: 'Comment',
         icon: window.CKEDITOR_COMMENTS_PLUGIN_PATH + 'comment.png',
-        command: 'comment'
+        command: 'comment_add'
       });
+
       // Create the comment dialog for editing inline content.
       CKEDITOR.dialog.add('comment', function() {
         return {
@@ -81,8 +123,35 @@ CKEDITOR.plugins.add('comments', {
           }]
         };
       });
+
       editor.on('instanceReady', function () {
+        // Initialize comments instance.
         editor.Comments.init();
+
+        // Remove comments that haven't been saved before returning editor data.
+        editor.on('getData', function (evt) {
+          var data = new CKEDITOR.dom.element('div');
+          data.setHtml(evt.data.dataValue);
+          var comments = data.find('comment');
+          for (var i = 0; i < comments.count(); i++) {
+            var comment = comments.getItem(i);
+            comment.removeAttributes(['style', 'class']);
+          }
+          evt.data.dataValue = data.getHtml();
+        });
+
+        // Detect editor mode switches.
+        editor.on('mode', function (evt) {
+          var editor = evt.editor;
+          // Switched to "wysiwyg" mode.
+          if (editor.mode === 'wysiwyg') {
+            // Re-initialize instance again.
+            editor.Comments.init();
+          }
+          else if (editor.mode === 'source') {
+            editor.Comments._initialized = false;
+          }
+        });
       });
     }
   }
@@ -105,23 +174,28 @@ CKEDITOR.plugins.add('comments', {
    * @returns {CKEDITOR.Comments} Comments
    */
   CKEDITOR.Comments = function(editor) {
+    /**
+     * State determining whether this instance has been initialized.
+     * @property {object} _initialized
+     * @private
+     */
     this._initialized = false;
+    /**
+     * A temporary CID value used to unsaved comments (should always be <= 0).
+     * @property {object} _temporaryCid
+     * @private
+     */
+    this._temporaryCid = 0;
     /**
      * An instance of the CommentAjax class.
      * @property {CKEDITOR.CommentAjax} ajax
-     * @private
      */
-    this.ajax = false;
+    this.ajax = this.subclass(CKEDITOR.CommentAjax);
     /**
      * Contains the comment IDs (cids) of initialized comments.
      * @property {object} [comments={}]
      */
     this.comments = {};
-    /**
-     * A temporary CID value used to unsaved comments (should always be <= 0).
-     * @property {object} tempCid
-     */
-    this.tempCid = 0;
     /**
      * The CKEDITOR.editor instance used in construction.
      * @property {CKEDITOR.editor} editor={}]
@@ -179,7 +253,6 @@ CKEDITOR.plugins.add('comments', {
       self._initialized = true;
 
       // Instantiate required subclasses.
-      this.ajax = this.subclass(CKEDITOR.CommentAjax);
       this.sidebar = this.subclass(CKEDITOR.CommentSidebar);
 
       // Add plugin stylesheet.
@@ -194,36 +267,20 @@ CKEDITOR.plugins.add('comments', {
         media: 'screen'
       }).appendTo(self.editor.document.getHead());
 
-      // Instantiate the comment widget.
-      self.editor.widgets.add('comment', CKEDITOR.CommentWidgetDefinition(self));
-
-      // Detect editor mode switches.
-      this.editor.on('mode', self.mode);
-
       // Create the comment sidebar container.
       this.sidebar.createContainer();
 
+      // Instantiate the comment widgets.
+      var comments = self.editor.document.find('comment');
+      for (var i = 0; i < comments.count(); i++) {
+        var comment = comments.getItem(i);
+        self.editor.getSelection().selectElement(comment);
+        var html = rangy.getSelection(self.editor.document.$).toHtml();
+        self.editor.widgets.initOn(comment, 'comment', { content: html });
+      }
+
       // @TODO temporarily disabled comment loading until widgets work properly.
       // this.ajax.loadComments();
-    },
-
-    /**
-     * Callback for the 'mode' event on the editor.
-     * @param {CKEDITOR.eventInfo} evt
-     */
-    mode: function (evt) {
-      var editor = evt.editor;
-      // Switched to "wysiwyg" mode.
-      if (editor.mode === 'wysiwyg' && !editor.Comments) {
-        // Initiate comments plugin on editor again.
-        editor.Comments = new CKEDITOR.Comments(editor);
-        editor.Comments.init();
-      }
-      // If switching to source, instantiate a new instance of comments
-      // so it can be re-initialized if switched back to 'wysiwyg' mode.
-      else if (editor.mode === 'source' && editor.Comments && editor.Comments instanceof CKEDITOR.Comments) {
-        delete editor.Comments;
-      }
     },
 
     /**
@@ -232,7 +289,7 @@ CKEDITOR.plugins.add('comments', {
     closestComment: function() {
       var self = this,
         selection = self.editor.getSelection(),
-        startElement = selection.getStartElement(),
+        startElement = selection ? selection.getStartElement() : false,
         comment = $();
       if (startElement) {
         comment = $(startElement.$).closest('comment');
@@ -294,76 +351,12 @@ CKEDITOR.plugins.add('comments', {
     },
 
     /**
-     * Isolates code execution from changing the current selection position of
-     * the editor.
-     * @param {Function} fn
+     * Retrieves a temporary CID for comments.
+     * @returns {number}
      */
-    isolate: function (fn) {
-      fn = fn || function () {};
-      if (typeof fn !== 'function') {
-        return;
-      }
-      var readOnly = this.editor.readOnly;
-      if (readOnly) {
-        this.editor.setReadOnly(false);
-      }
-      var selection = rangy.getSelection(this.editor.document.$);
-      var characterRanges = selection.saveCharacterRanges();
-      fn(selection);
-      // Restoring the selection needs a very small timeout. It doesn't always
-      // restore the previous selection correctly if a comment was inserted.
-      var self = this;
-      setTimeout(function() {
-        selection.restoreCharacterRanges(self.editor.document.$, characterRanges);
-      }, 4);
-      if (readOnly) {
-        this.editor.setReadOnly(true);
-      }
-    },
-
-    /**
-     * Create a new comment (CKEDITOR.Comment) for the editor.
-     *
-     * @param {object} [options={}]
-     * @param {boolean} [activate=false]
-     */
-    createComment: function(options, activate) {
-      var self = this;
-      options = options || {};
-      activate = activate || false;
-
-      this.isolate(function (selection) {
-        if (options.character_range) {
-          selection.restoreCharacterRanges(self.editor.document.$, options.character_range);
-        }
-        else {
-          if (selection.isCollapsed) {
-            selection.expand('word');
-            selection.refresh();
-          }
-          options.character_range = selection.saveCharacterRanges();
-        }
-        if (!options.inlineElement || !options.inlineElement.length) {
-          var $element = $('<comment/>').html(selection.toHtml());
-          if (options.cid) {
-            $element.attr('data-cid', options.cid);
-          }
-//          selection.pasteHtml($element.get(0).outerHTML);
-          self.editor.insertElement(new CKEDITOR.dom.element($element.get(0)));
-          options.inlineElement = $element;
-        }
-        var comment = options;
-        if (!(comment instanceof CKEDITOR.Comments)) {
-          comment = self.subclass(CKEDITOR.Comment, options);
-        }
-        if (activate) {
-          comment.activate();
-        }
-        if (!comment.cid) {
-          comment.edit();
-        }
-      });
-
+    getTemporaryCid: function () {
+      this._temporaryCid = this._temporaryCid - 1;
+      return this._temporaryCid;
     },
 
     /**

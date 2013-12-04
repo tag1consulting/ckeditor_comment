@@ -16,12 +16,14 @@
   CKEDITOR.Comment = function(options) {
 
     var self = this;
+
     /**
-     * State determining whether the comment is currently being saved.
-     * @property {boolean} _saving
+     * State determining whether the comment is currently being destroyed.
+     *
+     * @property {boolean} _destroying
      * @private
      */
-    self._saving = false;
+    self._destroying = false;
 
     /**
      * State determining whether the comment is currently being edited.
@@ -37,7 +39,14 @@
      * @property {boolean} _new
      * @private
      */
+
     self._new = false;
+    /**
+     * State determining whether the comment is currently being saved.
+     * @property {boolean} _saving
+     * @private
+     */
+    self._saving = false;
 
     /**
      * The UNIX timestamp of when the comment was last modified.
@@ -147,7 +156,16 @@
       },
       set : function (_newInlineElement) {
         var _oldInlineElement = _inlineElement;
-        if (_oldInlineElement !== _newInlineElement && _newInlineElement instanceof jQuery && _newInlineElement.length) {
+        if (_oldInlineElement === _newInlineElement) {
+          return;
+        }
+        if (_newInlineElement instanceof Node) {
+          _newInlineElement = $(_newInlineElement);
+        }
+        if (_newInlineElement instanceof CKEDITOR.dom.element) {
+          _newInlineElement = $(_newInlineElement.$);
+        }
+        if (_newInlineElement instanceof jQuery && _newInlineElement.length) {
           _newInlineElement.get(0)._ = self;
         }
         else {
@@ -155,12 +173,18 @@
         }
         _inlineElement = _newInlineElement;
         if (_inlineElement.length) {
+          var cid = _inlineElement.data('cid');
+          if (cid) {
+            self.cid = cid;
+          }
           self.sidebarElement = $('<comment><div class="color"></div><header></header><section></section><footer></footer></comment>')
             .addClass('cke-comment')
             .attr('data-widget-wrapper', 'true')
             .css('top', self.findTop() + 'px')
-            .on('click', function () {
-              self.activate();
+            .on('click', function (evt) {
+              if (self.editor.widgets.selected.length && self.editor.widgets.selected[0].comment !== self && $(evt.target).not(':input').length) {
+                self.widget.focus();
+              }
             })
             .appendTo(self.sidebar.container);
           self.sidebar.sort();
@@ -231,6 +255,8 @@
      * Wrapper for CKEDITOR.plugins.widget.destroy.
      */
     destroy: function () {
+      this._destroying = true;
+      this.editor.getSelection().selectElement(this.widget.wrapper);
       this.editor.widgets.del(this.widget);
     },
     /**
@@ -239,7 +265,7 @@
     edit: function () {
       var self = this;
       if (!self._editing) {
-        self.edit = true;
+        self._editing = true;
         var $section = self.sidebarElement.find('section');
         self.content = $section.html();
         var $textarea = $('<textarea/>').val(self.content);
@@ -262,7 +288,7 @@
           .appendTo($section)
           .bind('click', function () {
             self._editing = false;
-            if (!self.cid) {
+            if (self.cid === 0) {
               self.destroy();
             }
             else {
@@ -326,51 +352,6 @@
     },
 
     /**
-     * Deactivate comment.
-     *
-     * This method removes the <code>.active</code> class from both
-     * CKEDITOR.Comment.inlineElement and CKEDITOR.Comment.sidebarElement.
-     */
-    deactive: function() {
-      var self = this;
-      if (self.activeComment === self) {
-        self.activeComment = false;
-      }
-//      if (!self.cid && !self._saving) {
-//        self.destroy();
-//      }
-//      else {
-        self.inlineElement.removeClass('active');
-        self.sidebarElement.removeClass('active');
-//      }
-    },
-
-    /**
-     * Activate comment.
-     *
-     * This method adds the <code>.active</code> class to both
-     * CKEDITOR.Comment.inlineElement and CKEDITOR.Comment.sidebarElement.
-     *
-     * This method also invokes CKEDITOR.Comments.arrangeComments() afterwards.
-     */
-    activate: function() {
-      var self = this;
-      // Blur the currently focused comment.
-      if (self.activeComment && self.activeComment !== self) {
-        self.activeComment.deactive();
-      }
-      // Set this comment as the currently focused comment.
-      self.activeComment = self;
-
-      // Focus this comment.
-      self.inlineElement.addClass('active');
-      self.sidebarElement.addClass('active');
-
-      // Re-arrange touching comments.
-      self.arrangeComments();
-    },
-
-    /**
      * Determines the current top position of CKEDITOR.Comment.inlineElement.
      * @returns {number}
      */
@@ -395,6 +376,7 @@
      * @todo Temporarily disabled until widgets work properly.
      */
     save: function(callback) {
+      this.cid = this.getTemporaryCid();
       // @todo remove.
       if (typeof callback === 'function') {
         callback();
@@ -466,8 +448,11 @@
      */
     updateCharacterRange: function () {
       var selection = rangy.getSelection(this.editor.document.$);
-      var _cke_ranges = this.editor.getSelection().getRanges();
-      this.editor.getSelection().lock();
+      var _cke_ranges, _cke_selection = this.editor.getSelection();
+      if (_cke_selection) {
+        _cke_ranges = _cke_selection.getRanges();
+        _cke_selection.lock();
+      }
       selection.selectAllChildren(this.inlineElement.get(0));
       var newCharacterRange = selection.saveCharacterRanges();
       if (JSON.stringify(newCharacterRange) !== JSON.stringify(this.character_range)) {
@@ -477,8 +462,10 @@
       else {
         //        window.console.log('"' + selection.toString() + '": same character range');
       }
-      this.editor.getSelection().selectRanges(_cke_ranges);
-      this.editor.getSelection().unlock();
+      if (_cke_selection) {
+        _cke_selection.selectRanges(_cke_ranges);
+        _cke_selection.unlock();
+      }
     }
   };
 

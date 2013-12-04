@@ -2,16 +2,16 @@
 
   /**
    * Provides the "comment" widget definition.
-   * @param {CKEDITOR.Comments} instance
-   *   The CKEDITOR.Comments instance.
+   * @param {CKEDITOR.editor} editor
+   *   The editor instance.
    * @returns {Object}
    * @static
    * @abstract
    */
-  CKEDITOR.CommentWidgetDefinition = function (instance) {
+  CKEDITOR.CommentWidgetDefinition = function (editor) {
     return {
       defaults: function () {
-        var selection = rangy.getSelection(instance.editor.document.$);
+        var selection = rangy.getSelection(editor.document.$);
         // Attempt to expand word if possible.
         if (selection.isCollapsed) {
           selection.expand('word');
@@ -24,20 +24,31 @@
       },
       editables: {
         content: {
-          selector: '.cke-comment-content'
+          selector: '.comment-content'
         }
       },
       parts: {
-        content: '.cke-comment-content'
+        content: '.comment-content'
       },
       requiredContent: 'comment',
-      template: '<comment><span class="cke-comment-content">{content}</span></comment>',
+      template: '<comment><span class="comment-content">{content}</span></comment>',
       init: function () {
-        if (this.data.content.length) {
-          instance.subclass(CKEDITOR.CommentWidget, this);
+        if (!editor.Comments._initialized) {
+          editor.widgets.destroy(this);
+          return;
         }
+        // Element already exists in DOM or new widget has data content.
+        if (this.element.getDocument().equals(editor.document) || this.data.content.length) {
+          // If element exists in DOM, but has no data content, set it.
+          if (!this.data.content.length) {
+            this.setData('content', this.element.getHtml());
+          }
+          // Instantiate a new CommentWidget class to manage this widget.
+          editor.Comments.subclass(CKEDITOR.CommentWidget, this);
+        }
+        // Not a valid widget, destroy it.
         else {
-          instance.editor.widgets.del(this);
+          editor.widgets.del(this);
         }
       },
       upcast: function(element) {
@@ -63,11 +74,11 @@
     if (!widget) {
       return self;
     }
-    widget.on('data',     function () { self.data(this);      });
-    widget.on('deselect', function () { self.deselect(this);  });
-    widget.on('destroy',  function () { self.destroy(this);   });
-    widget.on('ready',    function () { self.ready(this);     });
-    widget.on('select',   function () { self.select(this);    });
+    widget.on('blur',     self.blur);
+    widget.on('data',     self.data);
+    widget.on('destroy',  self.destroy);
+    widget.on('focus',    self.focus);
+    widget.on('ready',    self.ready);
     self.widget = widget;
     return self;
   };
@@ -75,56 +86,73 @@
   CKEDITOR.CommentWidget.prototype = {
 
     /**
-     * Fired when the comment widget data has been changed.
-     * @event
-     * @param {CKEDITOR.plugins.widget} widget
+     * Fired when comment widget has been blurred.
+     * @param {CKEDITOR.eventInfo} evt
      */
-    data: function (widget) {
+    blur: function (evt) {
+      var widget = evt.sender;
+      if (widget.comment._editing) {
+        evt.stop();
+        return;
+      }
+      if (!widget.comment._destroying) {
+        widget.comment.inlineElement.removeClass('active');
+        widget.comment.sidebarElement.removeClass('active');
+        if (widget.comment.cid === 0 && !widget.comment._saving) {
+          widget.comment.destroy();
+        }
+      }
+    },
+
+    /**
+     * Fired when the comment widget data has been changed.
+     * @param {CKEDITOR.eventInfo} evt
+     */
+    data: function (evt) {
+      var widget = evt.sender;
       widget.element.setHtml(widget.data.content);
     },
 
     /**
-     * Fired when comment widget has been deselected.
-     * @event
-     * @param {CKEDITOR.plugins.widget} widget
+     * Fired when comment widget is destroyed.
+     * @param {CKEDITOR.eventInfo} evt
      */
-    deselect: function (widget) {
-      widget.comment.deactive();
+    destroy: function (evt) {
+      var widget = evt.sender;
+      widget.editor.undoManager.lock(true);
+      widget.comment.sidebarElement.remove();
+      widget.editor.insertHtml(widget.data.content);
+      widget.editor.undoManager.unlock();
     },
 
     /**
-     * Fired when comment widget is destroyed.
-     * @event
-     * @param {CKEDITOR.plugins.widget} widget
+     * Fired when comment widget has been focused.
+     * @param {CKEDITOR.eventInfo} evt
      */
-    destroy: function (widget) {
-      widget.comment.sidebarElement.remove();
-      this.editor.insertHtml(widget.data.content);
+    focus: function (evt) {
+      var widget = evt.sender;
+      if (!widget.comment._destroying) {
+        // Focus this comment.
+        widget.comment.inlineElement.addClass('active');
+        widget.comment.sidebarElement.addClass('active');
+
+        // Re-arrange touching comments.
+        widget.comment.arrangeComments();
+      }
     },
 
     /**
      * Fired when comment widget was successfully created and is ready.
-     * @event
-     * @param {CKEDITOR.plugins.widget} widget
+     * @param {CKEDITOR.eventInfo} evt
      */
-    ready: function (widget) {
+    ready: function (evt) {
+      var widget = evt.sender;
       widget.dialog = 'comment';
-      var comment = this.subclass(CKEDITOR.Comment, { inlineElement: $(widget.element.$)});
-      comment.widget = widget;
-      comment.activate();
-      if (!comment.cid) {
-        comment.edit();
+      if (!widget.comment) {
+        var comment = widget.editor.Comments.subclass(CKEDITOR.Comment, { inlineElement: $(widget.element.$)});
+        comment.widget = widget;
+        widget.comment = comment;
       }
-      widget.comment = comment;
-    },
-
-    /**
-     * Fired when comment widget is selected.
-     * @event
-     * @param {CKEDITOR.plugins.widget} widget
-     */
-    select: function (widget) {
-      widget.comment.activate();
     }
 
   };

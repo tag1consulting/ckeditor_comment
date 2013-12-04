@@ -33,12 +33,14 @@
   CKEDITOR.Comment = function(options) {
 
     var self = this;
-<span id='CKEDITOR-Comment-property-_saving'>    /**
-</span>     * State determining whether the comment is currently being saved.
-     * @property {boolean} _saving
+
+<span id='CKEDITOR-Comment-property-_destroying'>    /**
+</span>     * State determining whether the comment is currently being destroyed.
+     *
+     * @property {boolean} _destroying
      * @private
      */
-    self._saving = false;
+    self._destroying = false;
 
 <span id='CKEDITOR-Comment-property-_editing'>    /**
 </span>     * State determining whether the comment is currently being edited.
@@ -54,7 +56,14 @@
      * @property {boolean} _new
      * @private
      */
+
     self._new = false;
+<span id='CKEDITOR-Comment-property-_saving'>    /**
+</span>     * State determining whether the comment is currently being saved.
+     * @property {boolean} _saving
+     * @private
+     */
+    self._saving = false;
 
 <span id='CKEDITOR-Comment-property-changed'>    /**
 </span>     * The UNIX timestamp of when the comment was last modified.
@@ -164,7 +173,16 @@
       },
       set : function (_newInlineElement) {
         var _oldInlineElement = _inlineElement;
-        if (_oldInlineElement !== _newInlineElement &amp;&amp; _newInlineElement instanceof jQuery &amp;&amp; _newInlineElement.length) {
+        if (_oldInlineElement === _newInlineElement) {
+          return;
+        }
+        if (_newInlineElement instanceof Node) {
+          _newInlineElement = $(_newInlineElement);
+        }
+        if (_newInlineElement instanceof CKEDITOR.dom.element) {
+          _newInlineElement = $(_newInlineElement.$);
+        }
+        if (_newInlineElement instanceof jQuery &amp;&amp; _newInlineElement.length) {
           _newInlineElement.get(0)._ = self;
         }
         else {
@@ -172,12 +190,18 @@
         }
         _inlineElement = _newInlineElement;
         if (_inlineElement.length) {
+          var cid = _inlineElement.data(&#39;cid&#39;);
+          if (cid) {
+            self.cid = cid;
+          }
           self.sidebarElement = $(&#39;&lt;comment&gt;&lt;div class=&quot;color&quot;&gt;&lt;/div&gt;&lt;header&gt;&lt;/header&gt;&lt;section&gt;&lt;/section&gt;&lt;footer&gt;&lt;/footer&gt;&lt;/comment&gt;&#39;)
             .addClass(&#39;cke-comment&#39;)
             .attr(&#39;data-widget-wrapper&#39;, &#39;true&#39;)
             .css(&#39;top&#39;, self.findTop() + &#39;px&#39;)
-            .on(&#39;click&#39;, function () {
-              self.activate();
+            .on(&#39;click&#39;, function (evt) {
+              if (self.editor.widgets.selected.length &amp;&amp; self.editor.widgets.selected[0].comment !== self &amp;&amp; $(evt.target).not(&#39;:input&#39;).length) {
+                self.widget.focus();
+              }
             })
             .appendTo(self.sidebar.container);
           self.sidebar.sort();
@@ -248,6 +272,8 @@
      * Wrapper for CKEDITOR.plugins.widget.destroy.
      */
     destroy: function () {
+      this._destroying = true;
+      this.editor.getSelection().selectElement(this.widget.wrapper);
       this.editor.widgets.del(this.widget);
     },
 <span id='CKEDITOR-Comment-method-edit'>    /**
@@ -256,7 +282,7 @@
     edit: function () {
       var self = this;
       if (!self._editing) {
-        self.edit = true;
+        self._editing = true;
         var $section = self.sidebarElement.find(&#39;section&#39;);
         self.content = $section.html();
         var $textarea = $(&#39;&lt;textarea/&gt;&#39;).val(self.content);
@@ -279,7 +305,7 @@
           .appendTo($section)
           .bind(&#39;click&#39;, function () {
             self._editing = false;
-            if (!self.cid) {
+            if (self.cid === 0) {
               self.destroy();
             }
             else {
@@ -342,51 +368,6 @@
       }
     },
 
-<span id='CKEDITOR-Comment-method-deactive'>    /**
-</span>     * Deactivate comment.
-     *
-     * This method removes the &lt;code&gt;.active&lt;/code&gt; class from both
-     * CKEDITOR.Comment.inlineElement and CKEDITOR.Comment.sidebarElement.
-     */
-    deactive: function() {
-      var self = this;
-      if (self.activeComment === self) {
-        self.activeComment = false;
-      }
-//      if (!self.cid &amp;&amp; !self._saving) {
-//        self.destroy();
-//      }
-//      else {
-        self.inlineElement.removeClass(&#39;active&#39;);
-        self.sidebarElement.removeClass(&#39;active&#39;);
-//      }
-    },
-
-<span id='CKEDITOR-Comment-method-activate'>    /**
-</span>     * Activate comment.
-     *
-     * This method adds the &lt;code&gt;.active&lt;/code&gt; class to both
-     * CKEDITOR.Comment.inlineElement and CKEDITOR.Comment.sidebarElement.
-     *
-     * This method also invokes CKEDITOR.Comments.arrangeComments() afterwards.
-     */
-    activate: function() {
-      var self = this;
-      // Blur the currently focused comment.
-      if (self.activeComment &amp;&amp; self.activeComment !== self) {
-        self.activeComment.deactive();
-      }
-      // Set this comment as the currently focused comment.
-      self.activeComment = self;
-
-      // Focus this comment.
-      self.inlineElement.addClass(&#39;active&#39;);
-      self.sidebarElement.addClass(&#39;active&#39;);
-
-      // Re-arrange touching comments.
-      self.arrangeComments();
-    },
-
 <span id='CKEDITOR-Comment-method-findTop'>    /**
 </span>     * Determines the current top position of CKEDITOR.Comment.inlineElement.
      * @returns {number}
@@ -412,6 +393,7 @@
      * @todo Temporarily disabled until widgets work properly.
      */
     save: function(callback) {
+      this.cid = this.getTemporaryCid();
       // @todo remove.
       if (typeof callback === &#39;function&#39;) {
         callback();
@@ -483,8 +465,11 @@
      */
     updateCharacterRange: function () {
       var selection = rangy.getSelection(this.editor.document.$);
-      var _cke_ranges = this.editor.getSelection().getRanges();
-      this.editor.getSelection().lock();
+      var _cke_ranges, _cke_selection = this.editor.getSelection();
+      if (_cke_selection) {
+        _cke_ranges = _cke_selection.getRanges();
+        _cke_selection.lock();
+      }
       selection.selectAllChildren(this.inlineElement.get(0));
       var newCharacterRange = selection.saveCharacterRanges();
       if (JSON.stringify(newCharacterRange) !== JSON.stringify(this.character_range)) {
@@ -494,8 +479,10 @@
       else {
         //        window.console.log(&#39;&quot;&#39; + selection.toString() + &#39;&quot;: same character range&#39;);
       }
-      this.editor.getSelection().selectRanges(_cke_ranges);
-      this.editor.getSelection().unlock();
+      if (_cke_selection) {
+        _cke_selection.selectRanges(_cke_ranges);
+        _cke_selection.unlock();
+      }
     }
   };
 
