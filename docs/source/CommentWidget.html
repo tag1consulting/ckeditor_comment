@@ -15,13 +15,12 @@
   </script>
 </head>
 <body onload="prettyPrint(); highlight();">
-  <pre class="prettyprint lang-js">(function ($) { if (CKEDITOR &amp;&amp; CKEDITOR.Comments &amp;&amp; !CKEDITOR.CommentWidget) {
-
-<span id='CKEDITOR-CommentWidget-method-constructor'><span id='CKEDITOR-CommentWidget'>  /**
+  <pre class="prettyprint lang-js"><span id='CKEDITOR-CommentWidget-method-constructor'><span id='CKEDITOR-CommentWidget'>  /**
 </span></span>   * This class manages the comment widget for CKEditor. This class should
    * not be used directly. It is automatically instantiated when a
    * CKEDITOR.Comments instance is created.
    *
+   * @extends CKEDITOR.Comments
    * @constructor
    *   Initializes an instance of this class.
    *
@@ -114,10 +113,7 @@
         widget.comment = comment;
       }
     }
-
   };
-
-}})(jQuery);
 </pre>
 </body>
 </html>

@@ -1,5 +1,3 @@
-(function ($) { if (CKEDITOR && CKEDITOR.Comments && !CKEDITOR.CommentSidebar) {
-
   /**
    * This class manages the sidebar for CKEDITOR.Comments. This class should
    * not be used directly. It is automatically instantiated when a
@@ -7,10 +5,9 @@
    *
    *      var Comments = new CKEDITOR.Comments(editor);
    *      console.log(Comments.sidebar)
-   *      // returns CKEDITOR.CommentSidebar
+   *      // returns an instance of CKEDITOR.CommentSidebar
    *
    * @extends CKEDITOR.Comments
-   * @alias CKEDITOR.Comments._sidebar
    * @constructor
    *   Initializes an instance of this class. This class shouldn't be
    *   instantiated directly, but rather called with CKEDITOR.Comments.subclass.
@@ -78,5 +75,3 @@
     }
 
   };
-
-}})(jQuery);

@@ -1,10 +1,9 @@
-(function ($) { if (CKEDITOR && CKEDITOR.Comments && !CKEDITOR.CommentWidget) {
-
   /**
    * This class manages the comment widget for CKEditor. This class should
    * not be used directly. It is automatically instantiated when a
    * CKEDITOR.Comments instance is created.
    *
+   * @extends CKEDITOR.Comments
    * @constructor
    *   Initializes an instance of this class.
    *
@@ -97,7 +96,4 @@
         widget.comment = comment;
       }
     }
-
   };
-
-}})(jQuery);

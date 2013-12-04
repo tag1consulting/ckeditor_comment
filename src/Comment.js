@@ -1,9 +1,7 @@
-(function ($) { if (CKEDITOR && CKEDITOR.Comments && !CKEDITOR.Comment) {
-
   /**
    * Class that handles individual comments.
    *
-   * @extends CKEDITOR.Comments
+   * @todo migrate this into CKEDITOR.CommentWidget
    * @constructor Creates a new comment in the editor.
    *
    *     var Comments = new CKEDITOR.Comments(editor);
@@ -468,5 +466,3 @@
       }
     }
   };
-
-}})(jQuery);

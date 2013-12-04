@@ -1,8 +1,7 @@
-(function ($) { if (CKEDITOR && CKEDITOR.Comments && !CKEDITOR.CommentAjax) {
-
   /**
    * This class centralizes the ajax loading for ckeditor_comment.
    *
+   * @extends CKEDITOR.Comments
    * @constructor
    *   Initializes an instance of this class.
    *
@@ -83,5 +82,3 @@
       self.loaded = true;
     }
   };
-
-}})(jQuery);

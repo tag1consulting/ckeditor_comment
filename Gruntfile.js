@@ -13,20 +13,19 @@ module.exports = function(grunt) {
       '<%= pkg.homepage ? " * Homepage: " + pkg.homepage + "\\n" : "" %>' +
       ' * Author: <%= pkg.author.name %> (<%= pkg.author.url %>)\n' +
       ' * Last build: <%= grunt.template.today("yyyy-mm-dd h:MM:ss TT Z") %>\n' +
-      ' */\n',
+      ' */',
     // Task configuration.
     concat: {
       options: {
-        stripBanners: {
-          block: true,
-          line: true
-        },
-        banner: '<%= banner %>' + grunt.util.linefeed
+        banner: '<%= banner %>' + grunt.util.linefeed +
+          '(function ($) {' + grunt.util.linefeed,
+        footer: grunt.util.linefeed + '})(jQuery)'
       },
       dist: {
         src: [
-          'src/Comments.js', // Ensure the Comments class loads first.
-          'src/**/*.js'
+          'src/CommentPlugin.js', // Ensure the plugin loads first.
+          'src/Comments.js', // Ensure CKEDITOR.Comments class loads next.
+          'src/**/*.js' // Load the rest.
         ],
         dest: 'plugin/plugin.js'
       }
