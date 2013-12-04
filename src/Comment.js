@@ -182,7 +182,7 @@
             .attr('data-widget-wrapper', 'true')
             .css('top', self.findTop() + 'px')
             .on('click', function (evt) {
-              if (self.editor.widgets.selected.length && self.editor.widgets.selected[0].comment !== self && $(evt.target).not(':input').length) {
+              if ($(evt.target).not(':input').length) {
                 self.widget.focus();
               }
             })

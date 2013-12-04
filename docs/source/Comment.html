@@ -199,7 +199,7 @@
             .attr(&#39;data-widget-wrapper&#39;, &#39;true&#39;)
             .css(&#39;top&#39;, self.findTop() + &#39;px&#39;)
             .on(&#39;click&#39;, function (evt) {
-              if (self.editor.widgets.selected.length &amp;&amp; self.editor.widgets.selected[0].comment !== self &amp;&amp; $(evt.target).not(&#39;:input&#39;).length) {
+              if ($(evt.target).not(&#39;:input&#39;).length) {
                 self.widget.focus();
               }
             })

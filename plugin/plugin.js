@@ -1,11 +1,11 @@
 /**
  * @file
- * CKEditor Comment - v1.0.4169
+ * CKEditor Comment - v1.0.4170
  * A plugin for supporting inline commenting in CKEditor.
  *
  * Homepage: https://github.com/tag1consulting/ckeditor_comments
  * Author: Mark Carver (https://drupal.org/user/501638)
- * Last build: 2013-12-04 1:05:42 AM MST
+ * Last build: 2013-12-04 1:10:00 AM MST
  */
 
 /**
@@ -621,7 +621,7 @@ CKEDITOR.plugins.add('comments', {
             .attr('data-widget-wrapper', 'true')
             .css('top', self.findTop() + 'px')
             .on('click', function (evt) {
-              if (self.editor.widgets.selected.length && self.editor.widgets.selected[0].comment !== self && $(evt.target).not(':input').length) {
+              if ($(evt.target).not(':input').length) {
                 self.widget.focus();
               }
             })
