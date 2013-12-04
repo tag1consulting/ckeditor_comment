@@ -1,7 +1,7 @@
 {
   "name": "ckeditor_comment",
   "title": "CKEditor Comment",
-  "version": "1.0.4171",
+  "version": "1.0.4173",
   "description": "A CKEditor plugin that adds inline commenting",
   "repository": {
     "type": "git",

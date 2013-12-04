@@ -47,7 +47,52 @@ CKEDITOR.plugins.add('comments', {
     editor.Comments = new CKEDITOR.Comments(editor);
     if (editor.Comments.enabled) {
       // Add the comment widget.
-      editor.widgets.add('comment', CKEDITOR.CommentWidgetDefinition(editor));
+      editor.widgets.add('comment', {
+        defaults: function () {
+          var selection = rangy.getSelection(editor.document.$);
+          // Attempt to expand word if possible.
+          if (selection.isCollapsed) {
+            selection.expand('word');
+            selection.refresh();
+          }
+          selection.trim();
+          return {
+            content: selection.toHtml()
+          };
+        },
+        editables: {
+          content: {
+            selector: '.comment-content'
+          }
+        },
+        parts: {
+          content: '.comment-content'
+        },
+        requiredContent: 'comment',
+        template: '<comment><span class="comment-content">{content}</span></comment>',
+        init: function () {
+          if (!editor.Comments._initialized) {
+            editor.widgets.destroy(this);
+            return;
+          }
+          // Element already exists in DOM or new widget has data content.
+          if (this.element.getDocument().equals(editor.document) || this.data.content.length) {
+            // If element exists in DOM, but has no data content, set it.
+            if (!this.data.content.length) {
+              this.setData('content', this.element.getHtml());
+            }
+            // Instantiate a new CommentWidget class to manage this widget.
+            editor.Comments.subclass(CKEDITOR.CommentWidget, this);
+          }
+          // Not a valid widget, destroy it.
+          else {
+            editor.widgets.del(this);
+          }
+        },
+        upcast: function(element) {
+          return element.name === 'comment';
+        }
+      });
 
       // Add command for comment_add button.
       editor.addCommand('comment_add', {
