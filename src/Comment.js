@@ -313,6 +313,10 @@
         return 'hsl(' + h + ',' + s + '%,' + l + '%)';
       }
       if (!self.uid) {
+        // Bdragon note: On my old version of chromium for linux (29.0.1547.57), failing
+        // to have the type of self.uid match the initializer in the constructor
+        // above causes pieces of the object to get corrupted somehow.
+        // This appears to be fixed in current chrome but is something to be aware of....
         self.uid = parseInt(Drupal.settings.ckeditor_comment.currentUser.uid);
         self.name = Drupal.settings.ckeditor_comment.currentUser.name;
         self.picture = Drupal.settings.ckeditor_comment.currentUser.picture;
