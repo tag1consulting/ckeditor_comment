@@ -313,7 +313,7 @@
         return 'hsl(' + h + ',' + s + '%,' + l + '%)';
       }
       if (!self.uid) {
-        self.uid = Drupal.settings.ckeditor_comment.currentUser.uid;
+        self.uid = parseInt(Drupal.settings.ckeditor_comment.currentUser.uid);
         self.name = Drupal.settings.ckeditor_comment.currentUser.name;
         self.picture = Drupal.settings.ckeditor_comment.currentUser.picture;
       }
