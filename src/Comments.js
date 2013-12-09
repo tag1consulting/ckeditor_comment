@@ -160,11 +160,11 @@
       var self = this;
       comment = comment || self.activeComment || self.closestComment();
       if (comment && comment.sidebarElement.length) {
-        var beforeTop, beforeComment, commentsBefore = comment.sidebarElement.prevAll('comment').toArray();
-        var afterTop, afterComment, commentsAfter = comment.sidebarElement.nextAll('comment').toArray();
+        var beforeTop, beforeComment, commentsBefore = comment.sidebarElement.prevAll('div.cke-sidebar-comment').toArray();
+        var afterTop, afterComment, commentsAfter = comment.sidebarElement.nextAll('div.cke-sidebar-comment').toArray();
         beforeTop = afterTop = comment.sidebarElement.get(0).newTop = comment.findTop();
 
-        self.sidebar.container.find('> comment').stop(true);
+        self.sidebar.container.find('> div.cke-sidebar-comment').stop(true);
 
         var animateSidebarComment = function() {
           this._.sidebarElement.animate({top: this.newTop + 'px'});
@@ -186,7 +186,7 @@
             $(afterComment).queue('arrangeComments', animateSidebarComment);
           }
         }
-        self.sidebar.container.find('> comment').dequeue('arrangeComments');
+        self.sidebar.container.find('> div.cke-sidebar-comment').dequeue('arrangeComments');
       }
     },
 

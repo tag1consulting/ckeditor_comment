@@ -175,7 +175,7 @@
           if (cid) {
             self.cid = cid;
           }
-          self.sidebarElement = $('<comment><div class="color"></div><header></header><section></section><footer></footer></comment>')
+          self.sidebarElement = $('<div class="cke-sidebar-comment"><div class="color"></div><header></header><section></section><footer></footer></comment>')
             .addClass('cke-comment')
             .attr('data-widget-wrapper', 'true')
             .css('top', self.findTop() + 'px')

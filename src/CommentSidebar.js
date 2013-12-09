@@ -27,7 +27,7 @@
       if (this.container.length) {
         return;
       }
-      this.container = $('<comments/>').addClass('cke-comments-sidebar').attr('data-widget-wrapper', 'true').appendTo($(this.editor.document.$).find('html'));
+      this.container = $('<div></div>').addClass('cke-comments-sidebar').attr('data-widget-wrapper', 'true').appendTo($(this.editor.document.$).find('html'));
       var self = this;
       $(self.editor.document.getWindow().$).on('resize.cke-comments-sidebar', function () {
         window.console.log('window resize');
@@ -56,7 +56,7 @@
           $inlineComments[i]._.updateCharacterRange();
         }
       }
-      var $sidebarComments = this.container.find('> comment');
+      var $sidebarComments = this.container.find('> div.cke-sidebar-comment');
       if ($sidebarComments.length) {
         // Sort based on inline comment positions in editor.
         $sidebarComments.sort(function(a, b) {
