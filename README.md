@@ -2,7 +2,7 @@
 
 ---
 
-> **NOTE:** This project was only ever created as a proof-of-concept and mainly intended for interal purposes that no longer exist. It was never properly finished and is no longer being developed. We may pick it up again in the future, but for now please don't expect it to be "fully functional".
+> **NOTE:** This project was only ever created as a proof-of-concept and originally intended for internal purposes which no longer exist. It was never properly finished and is no longer being developed. We may pick it up again in the future, but for now please don't expect it to be "fully functional".
 
 ---
 
